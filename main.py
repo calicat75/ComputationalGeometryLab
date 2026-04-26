@@ -1,96 +1,107 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
-import math
 
 
-# 1. Математика: Отражение точки относительно прямой
-def reflect_point_across_line(point, p1_line, p2_line):
-    """
-    Отражает точку point относительно прямой, заданной точками p1_line и p2_line.
-    """
+# 1. Отражение (ось x=0)
+def reflect_vertical(point):
     x, y = point
-    x1, y1 = p1_line
-    x2, y2 = p2_line
-
-    dx = x2 - x1
-    dy = y2 - y1
-
-    if dx == 0 and dy == 0: return point
-
-    t = ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy)
-    proj_x = x1 + t * dx
-    proj_y = y1 + t * dy
-
-    return (2 * proj_x - x, 2 * proj_y - y)
+    return (-x, y)
 
 
-# 2. Математика: Подгонка коники (SVD для 8 точек)
-def fit_conic_symmetric(axis_p1, axis_p2, curve_points):
-    # 1. Генерируем зеркальные точки
-    mirrored_points = [reflect_point_across_line(p, axis_p1, axis_p2) for p in curve_points]
+# 2. Подгонка коники
+# Ax^2 + Cy^2 + Ey + F = 0
+def fit_conic_exact_3points(points):
+    # берём 3 точки
+    p1, p2, p3 = points
 
-    # 2. Собираем все точки: 2 точки оси + 3 исходные + 3 зеркальные = 8 точек
-    all_points = [axis_p1, axis_p2] + curve_points + mirrored_points
-
+    # формируем систему
+    # A*x^2 + C*y^2 + E*y = 1   (F = -1)
     M = []
-    for x, y in all_points:
-        # Уравнение: Ax^2 + Bxy + Cy^2 + Dx + Ey + F = 0
-        M.append([x * x, x * y, y * y, x, y, 1])
+    b = []
+
+    for x, y in [p1, p2, p3]:
+        M.append([x*x, y*y, y])
+        b.append(1)
 
     M = np.array(M)
+    b = np.array(b)
 
-    # SVD решение (находим вектор, минимизирующий ошибку для 8 точек)
-    _, _, Vt = np.linalg.svd(M)
-    coeff = Vt[-1, :]
-
-    # Нормализация
-    norm = np.linalg.norm(coeff)
-    if norm > 1e-10:
-        coeff = coeff / norm
-
-    return coeff
+    # строгое решение
+    try:
+        A, C, E = np.linalg.solve(M, b)
+        F = -1
+        return np.array([A, C, E, F]), True
+    except np.linalg.LinAlgError:
+        return None, False
 
 
-# 3. Классификация
+# 3. Проверка прохождения
+def check_all_points(coeff, points, tol=1e-4):
+    A, C, E, F = coeff
+
+    for x, y in points:
+        val = A*x*x + C*y*y + E*y + F
+        if abs(val) > tol:
+            return False
+    return True
+
+
+# 4. Классификация
 def classify_conic(coeff):
-    A, B, C, _, _, _ = coeff
-    delta = B ** 2 - 4 * A * C
-    if abs(delta) < 1e-4:
-        return "Парабола"
-    elif delta < 0:
+    A, C, _, _ = coeff
+
+    if A * C > 0:
         return "Эллипс"
-    else:
+    elif A * C < 0:
         return "Гипербола"
-
-
-def check_continuity(coeff):
-    A, B, C, D, E, F = coeff
-    # Для симметричной коники B и D должны быть близки к 0
-    is_symmetric = (abs(B) < 0.1) and (abs(D) < 0.1)
-    if is_symmetric:
-        return True, "Гладкое соединение (G1 непрерывность)"
     else:
-        return False, "Возможен излом"
+        return "Парабола"
 
 
-# 4. Отрисовка
+# 5. Производная
+def derivative(coeff, x, y):
+    A, C, E, F = coeff
+
+    Fx = 2*A*x
+    Fy = 2*C*y + E
+
+    if abs(Fy) < 1e-6:
+        return None
+
+    return -Fx / Fy
+
+
+def check_continuity(coeff, y0=0, eps=1e-3):
+    # проверяем на оси x=0
+    left = derivative(coeff, -eps, y0)
+    right = derivative(coeff, eps, y0)
+
+    if left is None or right is None:
+        return True, "Вертикальная касательная"
+
+    if abs(left - right) < 1e-2:
+        return True, "G1 гладкость"
+    else:
+        return False, f"Разрыв: {left:.2f} vs {right:.2f}"
+
+
+# 6. Отрисовка
 def draw_conic(coeff, ax):
     x = np.linspace(-10, 10, 600)
     y = np.linspace(-10, 10, 600)
     X, Y = np.meshgrid(x, y)
 
-    A, B, C, D, E, F = coeff
-    Z = A * X ** 2 + B * X * Y + C * Y ** 2 + D * X + E * Y + F
+    A, C, E, F = coeff
+    Z = A*X**2 + C*Y**2 + E*Y + F
 
-    # Удаляем старые контуры
     for coll in ax.collections[:]:
         coll.remove()
 
-    ax.contour(X, Y, Z, levels=[0], colors='blue', linewidths=2)
+    ax.contour(X, Y, Z, levels=[0], linewidths=2)
 
 
-# 5. GUI Состояние
+# 7. GUI
 points_axis = []
 points_curve = []
 stage = 0
@@ -105,13 +116,14 @@ ax.set_xlim(-10, 10)
 ax.set_ylim(-10, 10)
 ax.grid(True)
 ax.set_aspect('equal')
-ax.set_title("Кликните 1-ю точку оси (P0)")
+ax.set_title("Кликните верхнюю точку оси (x=0)")
 ax.axhline(0, color='black', linewidth=0.5)
 ax.axvline(0, color='black', linewidth=0.5)
 
 ax_info.axis('off')
 
-# 6. Кнопка ОЧИСТИТЬ
+
+# 8. Кнопка очистки
 ax_btn_clear = plt.axes([0.4, 0.02, 0.2, 0.05])
 btn_clear = Button(ax_btn_clear, 'ОЧИСТИТЬ')
 
@@ -128,13 +140,9 @@ def clear_plot(event):
     ax.set_ylim(-10, 10)
     ax.grid(True)
     ax.set_aspect('equal')
-    ax.set_title("Кликните 1-ю точку оси (P0)")
+    ax.set_title("Кликните верхнюю точку оси (x=0)")
     ax.axhline(0, color='black', linewidth=0.5)
     ax.axvline(0, color='black', linewidth=0.5)
-
-    # Добавляем подсказку сразу после очистки
-    ax.text(0, -9, "Совет: Для Гиперболы ставьте точки 'зигзагом' (W)",
-            ha='center', fontsize=10, style='italic', color='gray')
 
     ax_info.clear()
     ax_info.axis('off')
@@ -145,101 +153,107 @@ def clear_plot(event):
 btn_clear.on_clicked(clear_plot)
 
 
-# 7. Обработка кликов
+# 9. Клики
 def onclick(event):
     global stage, points_axis, points_curve
 
-    if event.xdata is None or event.ydata is None:
+    if event.xdata is None:
         return
 
-    p = (event.xdata, event.ydata)
+    x, y = event.xdata, event.ydata
 
-    # Этап 1: Первая точка оси
+    # ось фиксируем
+    if stage < 2:
+        x = 0
+
+    p = (x, y)
+
     if stage == 0:
         points_axis.append(p)
-        ax.plot(p[0], p[1], 'kx', markersize=15, markeredgewidth=2)
-        ax.text(p[0], p[1] - 0.5, 'P0', color='black', fontsize=12)
+        ax.plot(x, y, 'kx')
+        ax.text(x, y-0.5, 'P0')
         stage = 1
-        ax.set_title("Кликните 2-ю точку оси (P1)")
-        fig.canvas.draw_idle()
+        ax.set_title("Кликните нижнюю точку оси")
 
-    # Этап 2: Вторая точка оси
     elif stage == 1:
         points_axis.append(p)
-        ax.plot(p[0], p[1], 'kx', markersize=15, markeredgewidth=2)
-        ax.text(p[0], p[1] - 0.5, 'P1', color='black', fontsize=12)
+        ax.plot(x, y, 'kx')
+        ax.text(x, y-0.5, 'P1')
 
-        ax.plot([points_axis[0][0], points_axis[1][0]],
-                [points_axis[0][1], points_axis[1][1]],
-                'g--', linewidth=1.5, alpha=0.7)
+        ax.plot([0, 0], [points_axis[0][1], points_axis[1][1]], 'g--')
 
         stage = 2
         ax.set_title("Кликните 3 точки кривой")
-        fig.canvas.draw_idle()
 
-    # Этап 3: Точки кривой
     elif stage == 2:
         points_curve.append(p)
-        ax.plot(p[0], p[1], 'ro', markersize=10)
-        ax.text(p[0] + 0.2, p[1] + 0.2, f'P{len(points_curve) + 1}', color='red', fontweight='bold')
+        ax.plot(x, y, 'ro')
 
         if len(points_curve) == 3:
             process_result()
             stage = 3
 
-        fig.canvas.draw_idle()
+    fig.canvas.draw_idle()
 
 
+# 10. Основная логика
 def process_result():
-    # 1. Математика
-    coeff = fit_conic_symmetric(points_axis[0], points_axis[1], points_curve)
+    coeff, ok = fit_conic_exact_3points(points_curve)
 
-    # 2. Рисуем сечение
+    if not ok:
+        show_error("Система вырождена")
+        return
+
+    # проверяем все 6 точек
+    mirrored = [reflect_vertical(p) for p in points_curve]
+    all_points = points_curve + mirrored
+
+    exact = check_all_points(coeff, all_points)
+
     draw_conic(coeff, ax)
-    ax.set_title("Симметричное составное коническое сечение")
 
-    # 3. Обновляем информационную панель
-    update_info_panel(coeff, points_axis, points_curve)
+    update_info(coeff, exact)
 
 
-def update_info_panel(coeff, p_axis, p_curve):
+# 11. Инфо
+def show_error(msg):
+    ax_info.clear()
+    ax_info.axis('off')
+    ax_info.text(0.1, 0.5, msg, color='red', fontsize=12)
+
+
+def update_info(coeff, exact):
     ax_info.clear()
     ax_info.axis('off')
 
-    A, B, C, D, E, F = coeff
+    A, C, E, F = coeff
     c_type = classify_conic(coeff)
-    is_cont, msg = check_continuity(coeff)
+    cont, msg = check_continuity(coeff)
 
     text = f"""
-ВХОДНЫЕ ДАННЫЕ:
-P0 (Ось): ({p_axis[0][0]:.1f}, {p_axis[0][1]:.1f})
-P1 (Ось): ({p_axis[1][0]:.1f}, {p_axis[1][1]:.1f})
+ТИП: {c_type}
 
-P2 (Дуга): ({p_curve[0][0]:.1f}, {p_curve[0][1]:.1f})
-P3 (Дуга): ({p_curve[1][0]:.1f}, {p_curve[1][1]:.1f})
-P4 (Дуга): ({p_curve[2][0]:.1f}, {p_curve[2][1]:.1f})
+A = {A:.3f}
+C = {C:.3f}
+E = {E:.3f}
+F = {F:.3f}
 
---------------------------
-ТИП СЕЧЕНИЯ: {c_type}
---------------------------
-КОЭФФИЦИЕНТЫ:
-A = {A:.3f}   B = {B:.3f}
-C = {C:.3f}   D = {D:.3f}
-E = {E:.3f}   F = {F:.3f}
+------------------
+ПРОХОДИТ ЧЕРЕЗ ВСЕ ТОЧКИ:
+{'ДА' if exact else 'НЕТ'}
 
---------------------------
-АНАЛИЗ РАЗРЫВОВ:
-{'НЕПРЕРЫВНО' if is_cont else 'РАЗРЫВ'}
+------------------
+ГЛАДКОСТЬ:
+{'ДА' if cont else 'НЕТ'}
 {msg}
 """
-    ax_info.text(0.05, 0.95, text, fontsize=10, family='monospace',
-                 va='top',
-                 bbox=dict(boxstyle='round', facecolor='lightyellow', edgecolor='gray'))
+
+    ax_info.text(0.05, 0.95, text,
+                 fontsize=10,
+                 family='monospace',
+                 va='top')
 
 
 # Запуск
 fig.canvas.mpl_connect('button_press_event', onclick)
-# Инициализация подсказки
-#ax.text(0, -9, "Совет: Для Гиперболы ставьте точки 'зигзагом' (W)",
- #       ha='center', fontsize=10, style='italic', color='gray')
 plt.show()
