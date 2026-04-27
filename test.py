@@ -41,6 +41,8 @@ class ConicDesigner:
     def setup_plot(self):
         """Настройка графического интерфейса"""
         self.fig = plt.figure(figsize=(15, 9))
+        self.fig.canvas.manager.set_window_title('Построение симметричного составного конического сечения')
+        
         gs = self.fig.add_gridspec(1, 2, width_ratios=[2.5, 1])
         
         self.ax = self.fig.add_subplot(gs[0])
@@ -51,7 +53,7 @@ class ConicDesigner:
         self.ax.set_ylim(self.y_min, self.y_max)
         self.ax.grid(True, alpha=0.3)
         self.ax.set_aspect('equal')
-        self.ax.set_title("Составное коническое сечение\nКасательные: P0 и P4 - горизонтальные, P2 - вертикальная")
+        self.ax.set_title("Симметричное составное коническое сечение\nКасательные: P0 и P4 - горизонтальные, P2 - вертикальная")
         
         # оси координат
         self.ax.axhline(y=0, color='black', linewidth=0.5, alpha=0.5)
@@ -92,7 +94,7 @@ class ConicDesigner:
         self.ax.text(self.P4[0] + 0.5, self.P4[1] - 1, 'P4', fontsize=12, fontweight='bold')
         
         # P2 с вертикальной касательной (перетаскиваемая)
-        self.P2_marker = self.ax.plot(self.P2[0], self.P2[1], 'bs', markersize=12, markeredgewidth=2)[0]
+        self.ax.plot(self.P2[0], self.P2[1], 'bs', markersize=12, markeredgewidth=2)
         self.ax.plot([self.P2[0], self.P2[0]], [self.P2[1]-2, self.P2[1]+2], 
                     'r-', linewidth=2, alpha=0.7)
         self.ax.text(self.P2[0] - 2, self.P2[1], 'P2', fontsize=12, fontweight='bold', color='blue')
@@ -103,8 +105,8 @@ class ConicDesigner:
             self.ax.text(self.P1[0] + 0.5, self.P1[1] + 0.5, 'P1', color='red', fontsize=11, fontweight='bold')
         
         if self.P3:
-            self.ax.plot(self.P3[0], self.P3[1], 'mo', markersize=10)
-            self.ax.text(self.P3[0] + 0.5, self.P3[1] + 0.5, 'P3', color='magenta', fontsize=11, fontweight='bold')
+            self.ax.plot(self.P3[0], self.P3[1], 'ro', markersize=10)
+            self.ax.text(self.P3[0] + 0.5, self.P3[1] + 0.5, 'P3', color='red', fontsize=11, fontweight='bold')
     
     def reflect_point_across_line(self, point, line_point, is_horizontal=True):
         """Отражение точки относительно прямой"""
@@ -289,7 +291,6 @@ class ConicDesigner:
         self.coeff2 = self.fit_conic_liming(self.P2, self.P4, self.P3, False, True)
         self.draw_conic(self.coeff2, self.ax, 'green')
         
-        # Визуализируем точку стыка с учетом непрерывности
         self.visualize_continuity()
         
         self.analyze_conics(self.coeff1, self.coeff2)
@@ -308,8 +309,8 @@ class ConicDesigner:
                 self.ax.plot(self.P2[0], self.P2[1], 'rx', markersize=15, markeredgewidth=3, 
                            label='Разрыв C0')
             elif not continuity.get('c1_continuous', False):
-                # Разрыв C1 (излом) - желтая звезда
-                self.ax.plot(self.P2[0], self.P2[1], 'y*', markersize=15, markeredgewidth=2,
+                # Разрыв C1 (излом) - красный ромб
+                self.ax.plot(self.P2[0], self.P2[1], 'rd', markersize=12, markeredgewidth=2,
                            label='Излом (C1 разрыв)')
             else:
                 # Гладкое соединение - зеленый круг
@@ -330,7 +331,7 @@ class ConicDesigner:
         self.ax_info.clear()
         self.ax_info.axis('off')
         
-        text = "СОСТАВНОЕ КОНИЧЕСКОЕ СЕЧЕНИЕ\n"
+        text = "СИММЕТРИЧНОЕ ОСТАВНОЕ КОНИЧЕСКОЕ СЕЧЕНИЕ\n"
         text += "=" * 40 + "\n\n"
         
         text += "КАСАТЕЛЬНЫЕ:\n"
@@ -341,24 +342,23 @@ class ConicDesigner:
         if self.P1:
             text += "ТОЧКИ НА КОНИКЕ:\n"
             text += f"  P1: ({self.P1[0]:.2f}, {self.P1[1]:.2f})\n"
+        if self.P3:
             text += f"  P3: ({self.P3[0]:.2f}, {self.P3[1]:.2f})\n\n"
         
-        if type1 and type2:
+        if type1 and type2 and coeff1 is not None and coeff2 is not None:
             text += "─" * 40 + "\n"
             text += "СЕГМЕНТ 1: P0 → P1 → P2\n"
             text += f"  Тип: {type1}\n"
-            if coeff1 is not None:
-                A, B, C, D, E, F = coeff1
-                text += f"  {A:+.6f}x² {B:+.6f}xy {C:+.6f}y²\n"
-                text += f"  {D:+.6f}x {E:+.6f}y {F:+.6f} = 0\n"
+            A, B, C, D, E, F = coeff1
+            text += f"  {A:+.6f}x² {B:+.6f}xy {C:+.6f}y²\n"
+            text += f"  {D:+.6f}x {E:+.6f}y {F:+.6f} = 0\n"
             text += "\n"
             
             text += "СЕГМЕНТ 2: P2 → P3 → P4\n"
             text += f"  Тип: {type2}\n"
-            if coeff2 is not None:
-                A, B, C, D, E, F = coeff2
-                text += f"  {A:+.6f}x² {B:+.6f}xy {C:+.6f}y²\n"
-                text += f"  {D:+.6f}x {E:+.6f}y {F:+.6f} = 0\n"
+            A, B, C, D, E, F = coeff2
+            text += f"  {A:+.6f}x² {B:+.6f}xy {C:+.6f}y²\n"
+            text += f"  {D:+.6f}x {E:+.6f}y {F:+.6f} = 0\n"
             text += "\n"
             
             text += "═" * 40 + "\n"
@@ -371,11 +371,11 @@ class ConicDesigner:
                 
                 # Проверка C0
                 if continuity['c0_continuous']:
-                    text += "✓ C0 - непрерывность выполнена\n"
+                    text += "C0 - НЕПРЕРЫВНОСТЬ ВЫПОЛНЕНА\n"
                     text += f"  F1({x0:.2f},{y0:.2f}) = {continuity['left_value']:.6f}\n"
                     text += f"  F2({x0:.2f},{y0:.2f}) = {continuity['right_value']:.6f}\n\n"
                 else:
-                    text += "✗ C0 - НЕПРЕРЫВНОСТЬ НАРУШЕНА!\n"
+                    text += "C0 - НЕПРЕРЫВНОСТЬ НАРУШЕНА\n"
                     text += f"  Левое значение: {continuity['left_value']:.6f}\n"
                     text += f"  Правое значение: {continuity['right_value']:.6f}\n"
                     text += f"  Величина скачка: {continuity['jump']:.6f}\n\n"
@@ -384,10 +384,10 @@ class ConicDesigner:
                 if continuity['c0_continuous']:
                     if 'c1_continuous' in continuity:
                         if continuity['c1_continuous']:
-                            text += "✓ C1 - гладкое соединение\n"
+                            text += "C1 - ГЛАДКОЕ СОЕДИНЕНИЕ\n"
                             text += "  Касательные совпадают по направлению\n"
                         else:
-                            text += "✗ C1 - НЕПРЕРЫВНОСТЬ НАРУШЕНА (излом)\n"
+                            text += "C1 - НЕПРЕРЫВНОСТЬ НАРУШЕНА (излом)\n"
                             if 'angle' in continuity and continuity['angle'] is not None:
                                 text += f"  Угол между касательными: {continuity['angle']:.2f}°\n"
                             if 'tangent1' in continuity and continuity['tangent1'] is not None:
@@ -426,8 +426,8 @@ class ConicDesigner:
             
         elif self.stage == 1 and self.P3 is None:
             self.P3 = (event.xdata, event.ydata)
-            self.ax.plot(self.P3[0], self.P3[1], 'mo', markersize=10)
-            self.ax.text(self.P3[0] + 0.5, self.P3[1] + 0.5, 'P3', color='magenta', fontsize=11, fontweight='bold')
+            self.ax.plot(self.P3[0], self.P3[1], 'ro', markersize=10)
+            self.ax.text(self.P3[0] + 0.5, self.P3[1] + 0.5, 'P3', color='red', fontsize=11, fontweight='bold')
             self.update_info_panel()
             self.fig.canvas.draw_idle()
             self.calculate_and_draw()
@@ -474,7 +474,7 @@ class ConicDesigner:
         self.ax.set_ylim(self.y_min, self.y_max)
         self.ax.grid(True, alpha=0.3)
         self.ax.set_aspect('equal')
-        self.ax.set_title("Составное коническое сечение")
+        self.ax.set_title("Симметричное составное коническое сечение")
         
         self.ax.axhline(y=0, color='black', linewidth=0.5, alpha=0.5)
         self.ax.axvline(x=0, color='black', linewidth=0.5, alpha=0.5)
