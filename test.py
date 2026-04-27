@@ -211,14 +211,14 @@ class ConicDesigner:
         
         result = {
             'point': point,
-            'c0_continuous': c0,
+            'c0_continuous': c0_continuous,
             'discontinuity_type': None,
             'left_value': val1,
             'right_value': val2,
             'jump': abs(val1 - val2)
         }
 
-        if not c0:
+        if not c0_continuous :
             result['discontinuity_type'] = 'Разрыв C0 (скачок функции)'
             return result
         
@@ -297,13 +297,13 @@ class ConicDesigner:
 
         # Верхняя дуга (P0 -> P2)
         xs_up, ys_up = get_branch(self.coeff1, [-X_LINE, 0], 'upper')
-        self.ax.plot(xs_up, ys_up, 'k-', linewidth=2.5, zorder=3)
-        self.ax.plot(-xs_up, ys_up, 'k-', linewidth=2.5, zorder=3)  # Симметрия
+        self.ax.plot(xs_up, ys_up, 'k-', linewidth=1.5, zorder=3)
+        self.ax.plot(-xs_up, ys_up, 'k-', linewidth=1.5, zorder=3)  # Симметрия
 
         # Нижняя дуга (P2 -> P4)
         xs_low, ys_low = get_branch(self.coeff2, [-X_LINE, 0], 'lower')
-        self.ax.plot(xs_low, ys_low, 'k-', linewidth=2.5, zorder=3)
-        self.ax.plot(-xs_low, ys_low, 'k-', linewidth=2.5, zorder=3)  # Симметрия
+        self.ax.plot(xs_low, ys_low, 'k-', linewidth=1.5, zorder=3)
+        self.ax.plot(-xs_low, ys_low, 'k-', linewidth=1.5, zorder=3)  # Симметрия
 
     def calculate_and_draw(self):
         if self.P1 is None or self.P3 is None:
@@ -317,12 +317,12 @@ class ConicDesigner:
         self.redraw_base()
 
         self.coeff1 = self.fit_conic_liming(self.P0, self.P2, self.P1, True, False)
-        self.draw_conic(self.coeff1, self.ax, 'blue', '--', 0.3)
+        self.draw_conic(self.coeff1, self.ax, 'blue', '--', 0.5)
 
         self.coeff2 = self.fit_conic_liming(self.P2, self.P4, self.P3, False, True)
-        self.draw_conic(self.coeff2, self.ax, 'green', '--', 0.3)
+        self.draw_conic(self.coeff2, self.ax, 'green', '--', 0.5)
 
-        self.draw_composite_black()  # <-- ДОБАВЛЕНО: чёрное сечение поверх
+        self.draw_composite_black()
 
         self.visualize_continuity()
         self.analyze_conics(self.coeff1, self.coeff2)
