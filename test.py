@@ -131,54 +131,31 @@ class ConicDesigner:
         p_tangent2 - точка на второй касательной
         point_on_conic - точка на конике
         """
-        # Шаг 1: Отражаем точку относительно первой касательной
         mirrored1 = self.reflect_point_across_line(point_on_conic, p_tangent1, tangent1_horizontal)
-        
-        # Шаг 2: Отражаем полученную точку относительно второй касательной
         mirrored2 = self.reflect_point_across_line(mirrored1, p_tangent2, not tangent2_vertical)
-        
-        # Шаг 3: Получаем 4 точки для построения коники
-        # Точки: P_tangent1, P_tangent2, point_on_conic, mirrored2
-        x1, y1 = p_tangent1
-        x2, y2 = p_tangent2
-        x3, y3 = point_on_conic
-        x4, y4 = mirrored2
-        
-        # Шаг 4: Метод Лайминга - решение через определители
-        # Уравнение коники: | x^2  xy  y^2  x  y  1 |
-        #                   | x1^2 x1y1 y1^2 x1 y1 1 |
-        #                   | x2^2 x2y2 y2^2 x2 y2 1 | = 0
-        #                   | x3^2 x3y3 y3^2 x3 y3 1 |
-        #                   | x4^2 x4y4 y4^2 x4 y4 1 |
-        
-        # Вычисляем коэффициенты через дополнительные определители
-        # Формируем матрицу 5x5 для каждого коэффициента
-        
-        def conic_coefficient(x, y, idx):
-            """Вычисление коэффициента через определитель"""
-            # Матрица 5x5, где заменяем соответствующий столбец
-            M = np.array([
-                [x1*x1, x1*y1, y1*y1, x1, y1, 1],
-                [x2*x2, x2*y2, y2*y2, x2, y2, 1],
-                [x3*x3, x3*y3, y3*y3, x3, y3, 1],
-                [x4*x4, x4*y4, y4*y4, x4, y4, 1],
-                [x*x,   x*y,   y*y,   x,   y,   1]
-            ])
-            
-            # Удаляем столбец idx и вычисляем определитель
-            M_reduced = np.delete(M, idx, axis=1)
-            return ((-1) ** idx) * np.linalg.det(M_reduced)
-        
-        # Вычисляем коэффициенты A, B, C, D, E, F
-        A = conic_coefficient(0, 0, 0)
-        B = conic_coefficient(0, 0, 1)
-        C = conic_coefficient(0, 0, 2)
-        D = conic_coefficient(0, 0, 3)
-        E = conic_coefficient(0, 0, 4)
-        F = conic_coefficient(0, 0, 5)
-        
-        coeff = np.array([A, B, C, D, E, F])
-        
+        pts = np.array([
+            p_tangent1,
+            p_tangent2,
+            point_on_conic,
+            mirrored2
+        ])
+
+        x = pts[:, 0]
+        y = pts[:, 1]
+
+        # матрица 4×6
+        M = np.column_stack([
+            x*x,
+            x*y,
+            y*y,
+            x,
+            y,
+            np.ones_like(x)
+        ])
+
+        # SVD
+        _, _, Vt = np.linalg.svd(M)
+        coeff = Vt[-1]
         # Нормализация
         norm = np.linalg.norm(coeff)
         if norm > 1e-10:
