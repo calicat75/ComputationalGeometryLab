@@ -2,9 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
 
-X_LINE = 10
-Y_LINE = 15
-RECTANGLE_LIMIT = 20
+X_LINE = 20
+Y_LINE = 30
+RECTANGLE_LIMIT = 40
 
 class ConicDesigner:
     def __init__(self):
@@ -255,7 +255,7 @@ class ConicDesigner:
         
         return result
     
-    def draw_conic(self, coeff, ax, color='blue'):
+    def draw_conic(self, coeff, ax, color='blue', linestyle='-', transparency = 0.5):
         """Отрисовка конического сечения"""
         if coeff is None:
             return
@@ -268,7 +268,7 @@ class ConicDesigner:
         
         Z = A * X**2 + B * X * Y + C * Y**2 + D * X + E * Y + F
         
-        ax.contour(X, Y, Z, levels=[0], colors=color, linewidths=2.5, alpha=0.8)
+        ax.contour(X, Y, Z, levels=[0], colors=color, linestyles=linestyle, linewidths=2.5, alpha=transparency)
     
     def calculate_and_draw(self):
         """Расчет и отрисовка обоих конических сечений методом Лайминга"""
@@ -285,11 +285,11 @@ class ConicDesigner:
         
         # Расчет и отрисовка первого сечения (P0-P2) с точкой P1
         self.coeff1 = self.fit_conic_liming(self.P0, self.P2, self.P1, True, False)
-        self.draw_conic(self.coeff1, self.ax, 'blue')
+        self.draw_conic(self.coeff1, self.ax, 'blue', '--', 0.3)
         
         # Расчет и отрисовка второго сечения (P2-P4) с точкой P3
         self.coeff2 = self.fit_conic_liming(self.P2, self.P4, self.P3, False, True)
-        self.draw_conic(self.coeff2, self.ax, 'green')
+        self.draw_conic(self.coeff2, self.ax, 'green', '--', 0.3)
         
         self.visualize_continuity()
         
