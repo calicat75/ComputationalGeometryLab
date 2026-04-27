@@ -68,52 +68,49 @@ class ConicDesigner:
         self.update_info_panel()
 
     def draw_fixed_points(self):
-        self.ax.plot(self.P0[0], self.P0[1], 'gs', markersize=12, markeredgewidth=2)
-        self.ax.plot([self.P0[0] - 2, self.P0[0] + 2], [self.P0[1], self.P0[1]], 'r-', linewidth=2, alpha=0.7)
-        self.ax.text(self.P0[0] + 0.5, self.P0[1] + 0.5, 'P0', fontsize=12, fontweight='bold')
+        self.ax.plot(self.P0[0], self.P0[1], 'gs', markersize=12, markeredgewidth=2, zorder=5)
+        self.ax.plot([self.P0[0] - 2, self.P0[0] + 2], [self.P0[1], self.P0[1]], 'r-', linewidth=2, alpha=0.7, zorder=4)
+        self.ax.text(self.P0[0] + 0.5, self.P0[1] + 0.5, 'P0', fontsize=12, fontweight='bold', zorder=6)
 
-        self.ax.plot(self.P4[0], self.P4[1], 'gs', markersize=12, markeredgewidth=2)
-        self.ax.plot([self.P4[0] - 2, self.P4[0] + 2], [self.P4[1], self.P4[1]], 'r-', linewidth=2, alpha=0.7)
-        self.ax.text(self.P4[0] + 0.5, self.P4[1] - 1, 'P4', fontsize=12, fontweight='bold')
+        self.ax.plot(self.P4[0], self.P4[1], 'gs', markersize=12, markeredgewidth=2, zorder=5)
+        self.ax.plot([self.P4[0] - 2, self.P4[0] + 2], [self.P4[1], self.P4[1]], 'r-', linewidth=2, alpha=0.7, zorder=4)
+        self.ax.text(self.P4[0] + 0.5, self.P4[1] - 1, 'P4', fontsize=12, fontweight='bold', zorder=6)
 
-        self.ax.plot(self.P2[0], self.P2[1], 'bs', markersize=12, markeredgewidth=2)
-        self.ax.plot([self.P2[0], self.P2[0]], [self.P2[1] - 2, self.P2[1] + 2], 'r-', linewidth=2, alpha=0.7)
-        self.ax.text(self.P2[0] - 2, self.P2[1], 'P2', fontsize=12, fontweight='bold', color='blue')
+        self.ax.plot(self.P2[0], self.P2[1], 'bs', markersize=12, markeredgewidth=2, zorder=5)
+        self.ax.plot([self.P2[0], self.P2[0]], [self.P2[1] - 2, self.P2[1] + 2], 'r-', linewidth=2, alpha=0.7, zorder=4)
+        self.ax.text(self.P2[0] - 2, self.P2[1], 'P2', fontsize=12, fontweight='bold', color='blue', zorder=6)
 
         if self.P1:
-            self.ax.plot(self.P1[0], self.P1[1], 'ro', markersize=10)
-            self.ax.text(self.P1[0] + 0.5, self.P1[1] + 0.5, 'P1', color='red', fontsize=11, fontweight='bold')
+            self.ax.plot(self.P1[0], self.P1[1], 'ro', markersize=10, zorder=5)
+            self.ax.text(self.P1[0] + 0.5, self.P1[1] + 0.5, 'P1', color='red', fontsize=11, fontweight='bold',
+                         zorder=6)
         if self.P3:
-            self.ax.plot(self.P3[0], self.P3[1], 'ro', markersize=10)
-            self.ax.text(self.P3[0] + 0.5, self.P3[1] + 0.5, 'P3', color='red', fontsize=11, fontweight='bold')
+            self.ax.plot(self.P3[0], self.P3[1], 'ro', markersize=10, zorder=5)
+            self.ax.text(self.P3[0] + 0.5, self.P3[1] + 0.5, 'P3', color='red', fontsize=11, fontweight='bold',
+                         zorder=6)
 
     def draw_valid_zones(self):
-        """Рисуем полупрозрачные зоны, где разрешено ставить P1 и P3"""
-        # Удаляем старые зоны
         for patch in self.ax.patches:
             if hasattr(patch, 'get_label') and patch.get_label() == 'valid_zone':
                 patch.remove()
 
-        # Зона для P1 (верхняя)
         rect1 = plt.Rectangle((-X_LINE, self.P2[1]), X_LINE, Y_LINE - self.P2[1],
-                              facecolor='yellow', alpha=0.15, edgecolor='orange', linestyle='--', label='valid_zone')
+                              facecolor='yellow', alpha=0.15, edgecolor='orange', linestyle='--', label='valid_zone',
+                              zorder=1)
         self.ax.add_patch(rect1)
-        self.ax.text(-X_LINE / 2, (self.P2[1] + Y_LINE) / 2, 'Зона для P1', ha='center', color='orange', alpha=0.6)
+        self.ax.text(-X_LINE / 2, (self.P2[1] + Y_LINE) / 2, 'Зона для P1', ha='center', color='orange', alpha=0.6,
+                     zorder=2)
 
-        # Зона для P3 (нижняя)
         rect2 = plt.Rectangle((-X_LINE, -Y_LINE), X_LINE, self.P2[1] - (-Y_LINE),
-                              facecolor='cyan', alpha=0.15, edgecolor='blue', linestyle='--', label='valid_zone')
+                              facecolor='cyan', alpha=0.15, edgecolor='blue', linestyle='--', label='valid_zone',
+                              zorder=1)
         self.ax.add_patch(rect2)
-        self.ax.text(-X_LINE / 2, (-Y_LINE + self.P2[1]) / 2, 'Зона для P3', ha='center', color='blue', alpha=0.6)
+        self.ax.text(-X_LINE / 2, (-Y_LINE + self.P2[1]) / 2, 'Зона для P3', ha='center', color='blue', alpha=0.6,
+                     zorder=2)
 
     def is_valid_click(self, x, y, target):
-        """Проверяет, находится ли клик в допустимой прямоугольной области"""
-        if x is None or y is None:
-            return False
-        # Базовые границы прямоугольника
-        if not (-X_LINE <= x <= 0 and -Y_LINE <= y <= Y_LINE):
-            return False
-        # Уточнение по сегментам
+        if x is None or y is None: return False
+        if not (-X_LINE <= x <= 0 and -Y_LINE <= y <= Y_LINE): return False
         if target == 'P1':
             return self.P2[1] <= y <= Y_LINE
         elif target == 'P3':
@@ -122,36 +119,25 @@ class ConicDesigner:
 
     def reflect_point_across_line(self, point, line_point, is_horizontal=True):
         x, y = point
-        if is_horizontal:
-            return (x, 2 * line_point[1] - y)
-        else:
-            return (2 * line_point[0] - x, y)
+        return (x, 2 * line_point[1] - y) if is_horizontal else (2 * line_point[0] - x, y)
 
-    def fit_conic_liming(self, p_tangent1, p_tangent2, point_on_conic,
-                         tangent1_horizontal=True, tangent2_vertical=True):
+    def fit_conic_liming(self, p_tangent1, p_tangent2, point_on_conic, tangent1_horizontal=True,
+                         tangent2_vertical=True):
         mirrored1 = self.reflect_point_across_line(point_on_conic, p_tangent1, tangent1_horizontal)
         mirrored2 = self.reflect_point_across_line(mirrored1, p_tangent2, not tangent2_vertical)
         pts = np.array([p_tangent1, p_tangent2, point_on_conic, mirrored2])
-
-        x = pts[:, 0]
-        y = pts[:, 1]
+        x, y = pts[:, 0], pts[:, 1]
         M = np.column_stack([x * x, x * y, y * y, x, y, np.ones_like(x)])
         _, _, Vt = np.linalg.svd(M)
         coeff = Vt[-1]
         norm = np.linalg.norm(coeff)
-        if norm > 1e-10:
-            coeff = coeff / norm
-        return coeff
+        return coeff / norm if norm > 1e-10 else coeff
 
     def classify_conic(self, coeff):
         A, B, C, _, _, _ = coeff
         delta = B ** 2 - 4 * A * C
-        if abs(delta) < 1e-4:
-            return "Парабола"
-        elif delta < 0:
-            return "Эллипс"
-        else:
-            return "Гипербола"
+        if abs(delta) < 1e-4: return "Парабола"
+        return "Эллипс" if delta < 0 else "Гипербола"
 
     def evaluate_conic(self, coeff, x, y):
         if coeff is None: return 0
@@ -160,82 +146,110 @@ class ConicDesigner:
 
     def get_derivatives(self, coeff, x, y):
         A, B, C, D, E, F = coeff
-        dx = 2 * A * x + B * y + D
-        dy = B * x + 2 * C * y + E
-        return dx, dy
+        return 2 * A * x + B * y + D, B * x + 2 * C * y + E
 
     def check_continuity(self, coeff1, coeff2, point):
         x0, y0 = point
         if coeff1 is None or coeff2 is None: return None
-        val1 = self.evaluate_conic(coeff1, x0, y0)
-        val2 = self.evaluate_conic(coeff2, x0, y0)
-        c0_continuous = abs(val1 - val2) < 1e-6
-        result = {'point': point, 'c0_continuous': c0_continuous, 'left_value': val1, 'right_value': val2,
-                  'jump': abs(val1 - val2)}
-        if not c0_continuous:
-            result['discontinuity_type'] = 'Разрыв C0 (скачок функции)'
-            return result
+        val1, val2 = self.evaluate_conic(coeff1, x0, y0), self.evaluate_conic(coeff2, x0, y0)
+        c0 = abs(val1 - val2) < 1e-6
+        res = {'point': point, 'c0_continuous': c0, 'left_value': val1, 'right_value': val2, 'jump': abs(val1 - val2)}
+        if not c0:
+            res['discontinuity_type'] = 'Разрыв C0 (скачок функции)'
+            return res
 
         dx1, dy1 = self.get_derivatives(coeff1, x0, y0)
         dx2, dy2 = self.get_derivatives(coeff2, x0, y0)
-        tangent1 = np.array([-dy1, dx1])
-        tangent2 = np.array([-dy2, dx2])
-        norm1, norm2 = np.linalg.norm(tangent1), np.linalg.norm(tangent2)
+        t1, t2 = np.array([-dy1, dx1]), np.array([-dy2, dx2])
+        n1, n2 = np.linalg.norm(t1), np.linalg.norm(t2)
 
-        if norm1 > 1e-6 and norm2 > 1e-6:
-            tangent1, tangent2 = tangent1 / norm1, tangent2 / norm2
-            dot_product = np.clip(np.dot(tangent1, tangent2), -1, 1)
-            angle = np.arccos(dot_product) * 180 / np.pi
-            c1_continuous = angle < 1e-6
-            result.update({'c1_continuous': c1_continuous, 'angle': angle, 'tangent1': tangent1, 'tangent2': tangent2})
-            result[
-                'discontinuity_type'] = 'Гладкое соединение' if c1_continuous else f'Разрыв C1 (излом, угол {angle:.2f}°)'
+        if n1 > 1e-6 and n2 > 1e-6:
+            t1, t2 = t1 / n1, t2 / n2
+            angle = np.degrees(np.arccos(np.clip(np.dot(t1, t2), -1, 1)))
+            c1 = angle < 1.0
+            res.update({'c1_continuous': c1, 'angle': angle, 'tangent1': t1, 'tangent2': t2})
+            res['discontinuity_type'] = 'Гладкое соединение' if c1 else f'Разрыв C1 (излом, угол {angle:.2f}°)'
         else:
-            result.update({'c1_continuous': False, 'discontinuity_type': 'Неопределенная касательная'})
-        return result
+            res.update({'c1_continuous': False, 'discontinuity_type': 'Неопределенная касательная'})
+        return res
 
-    def draw_conic(self, coeff, ax, color='blue'):
+    def draw_conic_full(self, coeff, ax, color='blue'):
+        """Рисует полную конику пунктиром (фон)"""
         if coeff is None: return
         A, B, C, D, E, F = coeff
         x = np.linspace(self.x_min, self.x_max, 400)
         y = np.linspace(self.y_min, self.y_max, 400)
         X, Y = np.meshgrid(x, y)
         Z = A * X ** 2 + B * X * Y + C * Y ** 2 + D * X + E * Y + F
-        ax.contour(X, Y, Z, levels=[0], colors=color, linewidths=2.5, alpha=0.8)
+        ax.contour(X, Y, Z, levels=[0], colors=color, linewidths=1.5, linestyles='--', alpha=0.4)
+
+    def draw_composite_black(self):
+        """Рисует чёрный контур составного сечения (P0-P2 и P2-P4) с симметрией"""
+        if self.coeff1 is None or self.coeff2 is None: return
+
+        def get_branch(coeff, x_range, branch='upper'):
+            A, B, C, D, E, F = coeff
+            xs = np.linspace(x_range[0], x_range[1], 400)
+            ys = []
+            for x in xs:
+                a_q, b_q, c_q = C, B * x + E, A * x ** 2 + D * x + F
+                if abs(a_q) < 1e-9:
+                    ys.append(-c_q / b_q if abs(b_q) > 1e-9 else 0)
+                else:
+                    delta = b_q ** 2 - 4 * a_q * c_q
+                    if delta >= 0:
+                        sqrt_d = np.sqrt(delta)
+                        y1 = (-b_q + sqrt_d) / (2 * a_q)
+                        y2 = (-b_q - sqrt_d) / (2 * a_q)
+                        ys.append(max(y1, y2) if branch == 'upper' else min(y1, y2))
+                    else:
+                        ys.append(np.nan)
+            return xs, np.array(ys)
+
+        # Верхняя дуга (P0 -> P2)
+        xs_up, ys_up = get_branch(self.coeff1, [-X_LINE, 0], 'upper')
+        self.ax.plot(xs_up, ys_up, 'k-', linewidth=2.5, zorder=3)
+        self.ax.plot(-xs_up, ys_up, 'k-', linewidth=2.5, zorder=3)  # Симметрия
+
+        # Нижняя дуга (P2 -> P4)
+        xs_low, ys_low = get_branch(self.coeff2, [-X_LINE, 0], 'lower')
+        self.ax.plot(xs_low, ys_low, 'k-', linewidth=2.5, zorder=3)
+        self.ax.plot(-xs_low, ys_low, 'k-', linewidth=2.5, zorder=3)  # Симметрия
 
     def calculate_and_draw(self):
         if self.P1 is None or self.P3 is None: return
-        for coll in self.ax.collections[:]:
-            if hasattr(coll, 'get_color') and coll.get_color() in ['blue', 'green']:
-                coll.remove()
+
         self.redraw_base()
 
         self.coeff1 = self.fit_conic_liming(self.P0, self.P2, self.P1, True, False)
-        self.draw_conic(self.coeff1, self.ax, 'blue')
-
         self.coeff2 = self.fit_conic_liming(self.P2, self.P4, self.P3, False, True)
-        self.draw_conic(self.coeff2, self.ax, 'green')
 
+        self.draw_conic_full(self.coeff1, self.ax, 'blue')
+        self.draw_conic_full(self.coeff2, self.ax, 'green')
+        self.draw_composite_black()
         self.visualize_continuity()
-        self.analyze_conics(self.coeff1, self.coeff2)
+
+        # Обновляем панель один раз в конце
+        cont = self.check_continuity(self.coeff1, self.coeff2, self.P2)
+        self.update_info_panel(self.classify_conic(self.coeff1), self.classify_conic(self.coeff2),
+                               self.coeff1, self.coeff2, cont)
+
         self.fig.canvas.draw_idle()
 
     def visualize_continuity(self):
         if self.coeff1 is None or self.coeff2 is None: return
-        continuity = self.check_continuity(self.coeff1, self.coeff2, self.P2)
-        if continuity:
-            if not continuity['c0_continuous']:
-                self.ax.plot(self.P2[0], self.P2[1], 'rx', markersize=15, markeredgewidth=3, label='Разрыв C0')
-            elif not continuity.get('c1_continuous', False):
-                self.ax.plot(self.P2[0], self.P2[1], 'rd', markersize=12, markeredgewidth=2, label='Излом (C1 разрыв)')
+        cont = self.check_continuity(self.coeff1, self.coeff2, self.P2)
+        if cont:
+            if not cont['c0_continuous']:
+                self.ax.plot(self.P2[0], self.P2[1], 'rx', markersize=15, markeredgewidth=3, zorder=7)
+            elif not cont.get('c1_continuous', False):
+                self.ax.plot(self.P2[0], self.P2[1], 'rd', markersize=12, markeredgewidth=2, zorder=7)
             else:
-                self.ax.plot(self.P2[0], self.P2[1], 'go', markersize=12, markeredgewidth=2, label='Гладкое соединение')
+                self.ax.plot(self.P2[0], self.P2[1], 'go', markersize=12, markeredgewidth=2, zorder=7)
 
     def analyze_conics(self, coeff1, coeff2):
-        type1 = self.classify_conic(coeff1)
-        type2 = self.classify_conic(coeff2)
-        continuity = self.check_continuity(coeff1, coeff2, self.P2)
-        self.update_info_panel(type1, type2, coeff1, coeff2, continuity)
+        self.update_info_panel(self.classify_conic(coeff1), self.classify_conic(coeff2), coeff1, coeff2,
+                               self.check_continuity(coeff1, coeff2, self.P2))
 
     def update_info_panel(self, type1=None, type2=None, coeff1=None, coeff2=None, continuity=None):
         """Обновление информационной панели с анализом непрерывности"""
@@ -280,31 +294,23 @@ class ConicDesigner:
                 x0, y0 = continuity['point']
                 text += f"\nКоординаты стыка: ({x0:.2f}, {y0:.2f})\n\n"
 
-                # Проверка C0
                 if continuity['c0_continuous']:
                     text += "C0 - НЕПРЕРЫВНОСТЬ ВЫПОЛНЕНА\n"
-                    text += f"  F1({x0:.2f},{y0:.2f}) = {continuity['left_value']:.6f}\n"
-                    text += f"  F2({x0:.2f},{y0:.2f}) = {continuity['right_value']:.6f}\n\n"
+                    text += f"  F1({x0:.2f},{y0:.2f}) = {continuity['left_value']:.6e}\n"
+                    text += f"  F2({x0:.2f},{y0:.2f}) = {continuity['right_value']:.6e}\n\n"
                 else:
                     text += "C0 - НЕПРЕРЫВНОСТЬ НАРУШЕНА\n"
-                    text += f"  Левое значение: {continuity['left_value']:.6f}\n"
-                    text += f"  Правое значение: {continuity['right_value']:.6f}\n"
-                    text += f"  Величина скачка: {continuity['jump']:.6f}\n\n"
+                    text += f"  Величина скачка: {continuity['jump']:.6e}\n\n"
 
-                # Проверка C1 (только если C0 выполнена)
                 if continuity['c0_continuous']:
                     if 'c1_continuous' in continuity:
                         if continuity['c1_continuous']:
-                            text += "C1 - ГЛАДКОЕ СОЕДИНЕНИЕ\n"
-                            text += "  Касательные совпадают по направлению\n"
+                            text += "C1 - ГЛАДКОЕ СОЕДИНЕНИЕ (G1)\n"
+                            text += "  Касательные коллинеарны (совпадает касательная прямая)\n"
                         else:
                             text += "C1 - НЕПРЕРЫВНОСТЬ НАРУШЕНА (излом)\n"
                             if 'angle' in continuity and continuity['angle'] is not None:
                                 text += f"  Угол между касательными: {continuity['angle']:.2f}°\n"
-                            if 'tangent1' in continuity and continuity['tangent1'] is not None:
-                                text += f"  Касательная слева: ({continuity['tangent1'][0]:.4f}, {continuity['tangent1'][1]:.4f})\n"
-                            if 'tangent2' in continuity and continuity['tangent2'] is not None:
-                                text += f"  Касательная справа: ({continuity['tangent2'][0]:.4f}, {continuity['tangent2'][1]:.4f})\n"
                     else:
                         text += "? C1 - не удалось определить\n"
 
@@ -317,26 +323,22 @@ class ConicDesigner:
                           bbox=dict(boxstyle='round', facecolor='lightyellow',
                                     edgecolor='gray', alpha=0.9))
 
-        self.fig.canvas.draw_idle()
-
     def on_click(self, event):
         if event.inaxes != self.ax or self.dragging: return
         x, y = event.xdata, event.ydata
-
         if self.stage == 0 and self.P1 is None:
             if not self.is_valid_click(x, y, 'P1'): return
             self.P1 = (x, y)
-            self.ax.plot(x, y, 'ro', markersize=10)
-            self.ax.text(x + 0.5, y + 0.5, 'P1', color='red', fontsize=11, fontweight='bold')
+            self.ax.plot(x, y, 'ro', markersize=10, zorder=5)
+            self.ax.text(x + 0.5, y + 0.5, 'P1', color='red', fontsize=11, fontweight='bold', zorder=6)
             self.stage = 1
             self.update_info_panel()
             self.fig.canvas.draw_idle()
-
         elif self.stage == 1 and self.P3 is None:
             if not self.is_valid_click(x, y, 'P3'): return
             self.P3 = (x, y)
-            self.ax.plot(x, y, 'ro', markersize=10)
-            self.ax.text(x + 0.5, y + 0.5, 'P3', color='red', fontsize=11, fontweight='bold')
+            self.ax.plot(x, y, 'ro', markersize=10, zorder=5)
+            self.ax.text(x + 0.5, y + 0.5, 'P3', color='red', fontsize=11, fontweight='bold', zorder=6)
             self.update_info_panel()
             self.fig.canvas.draw_idle()
             self.calculate_and_draw()
@@ -350,12 +352,9 @@ class ConicDesigner:
     def on_motion(self, event):
         if not self.dragging or event.inaxes != self.ax: return
         if self.current_drag_point == 'P2':
-            # Ограничиваем движение P2 пределами прямоугольника
             new_y = max(-Y_LINE, min(event.ydata, Y_LINE))
-            # Защита: не даем P2 пересечь уже установленные P1/P3
             if self.P1: new_y = min(new_y, self.P1[1] - 0.5)
             if self.P3: new_y = max(new_y, self.P3[1] + 0.5)
-
             self.P2 = (-X_LINE, new_y)
             if self.P1 and self.P3:
                 self.calculate_and_draw()
