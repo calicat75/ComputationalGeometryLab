@@ -87,7 +87,7 @@ class ConicDesigner:
         if self.P1:
             self.ax.plot(self.P1[0], self.P1[1], 'ro', markersize=10, zorder=5, alpha=0.5)
             self.ax.text(self.P1[0] + 0.5, self.P1[1] + 0.5, 'P1', color='red', fontsize=11, fontweight='bold')
-        
+
         if self.P3:
             self.ax.plot(self.P3[0], self.P3[1], 'ro', markersize=10, zorder=5, alpha=0.5)
             self.ax.text(self.P3[0] + 0.5, self.P3[1] + 0.5, 'P3', color='red', fontsize=11, fontweight='bold',
@@ -125,44 +125,62 @@ class ConicDesigner:
             return -Y_LINE <= y <= self.P2[1]
         return False
 
-    def reflect_point_across_line(self, point, line_point, is_horizontal=True):
-        x, y = point
+    def _line_from_points(self, p1, p2):
+        """Возвращает коэффициенты (a, b, c) прямой ax + by + c = 0 через две точки"""
+        a = p2[1] - p1[1]
+        b = p1[0] - p2[0]
+        c = -a * p1[0] - b * p1[1]
+        return a, b, c
 
+    def _line_from_tangent(self, point, is_horizontal=True):
+        """Возвращает коэффициенты касательной в точке"""
         if is_horizontal:
-            return (x, 2 * line_point[1] - y)
+            return 0.0, 1.0, -point[1]
         else:
-            return (2 * line_point[0] - x, y)
+            return 1.0, 0.0, -point[0]
 
-    def fit_conic_liming(self, p_tangent1, p_tangent2, point_on_conic,
-                         tangent1_horizontal=True, tangent2_vertical=True):
-        mirrored1 = self.reflect_point_across_line(point_on_conic, p_tangent1, tangent1_horizontal)
-        mirrored2 = self.reflect_point_across_line(mirrored1, p_tangent2, not tangent2_vertical)
-        pts = np.array([
-            p_tangent1,
-            p_tangent2,
-            point_on_conic,
-            mirrored2,
-            self.P2  
-        ])
+    def _eval_line(self, line, x, y):
+        """Вычисляет значение линейной формы ax + by + c в точке (x, y)"""
+        return line[0] * x + line[1] * y + line[2]
 
-        x = pts[:, 0]
-        y = pts[:, 1]
+    def fit_conic_liming(self, p_start, p_end, p_ctrl, tangent1_horizontal=True, tangent2_vertical=True):
+        """
+        Построение коники методом Лайминга через конический пучок.
+        Уравнение пучка: (1 - λ) * l1 * l2 + λ * l3 * l4 = 0
+        """
+        # 1. Прямые касательных в концах дуги
+        l1 = self._line_from_tangent(p_start, tangent1_horizontal)
+        l2 = self._line_from_tangent(p_end, tangent2_vertical)
 
-        M = np.column_stack([
-            x * x,
-            x * y,
-            y * y,
-            x,
-            y,
-            np.ones_like(x)
-        ])
+        # 2. Прямая хорды (в методе Лайминга l3 и l4 совпадают)
+        l3 = self._line_from_points(p_start, p_end)
+        l4 = l3
 
-        _, _, Vt = np.linalg.svd(M)
-        coeff = Vt[-1]
+        # 3. Значения прямых в контрольной точке P_ctrl
+        v1 = self._eval_line(l1, *p_ctrl)
+        v2 = self._eval_line(l2, *p_ctrl)
+        v3 = self._eval_line(l3, *p_ctrl)
+        v4 = self._eval_line(l4, *p_ctrl)
+
+        # 4. Нахождение параметра пучка λ
+        denom = v1 * v2 - v3 * v4
+        if abs(denom) < 1e-12:
+            return None  # Вырожденная конфигурация
+
+        lam = (v1 * v2) / denom
+
+        # 5. Раскрытие скобок для получения коэффициентов Ax^2 + Bxy + Cy^2 + Dx + Ey + F = 0
+        A = (1 - lam) * l1[0] * l2[0] + lam * l3[0] * l4[0]
+        B = (1 - lam) * (l1[0] * l2[1] + l1[1] * l2[0]) + lam * (l3[0] * l4[1] + l3[1] * l4[0])
+        C = (1 - lam) * l1[1] * l2[1] + lam * l3[1] * l4[1]
+        D = (1 - lam) * (l1[0] * l2[2] + l1[2] * l2[0]) + lam * (l3[0] * l4[2] + l3[2] * l4[0])
+        E = (1 - lam) * (l1[1] * l2[2] + l1[2] * l2[1]) + lam * (l3[1] * l4[2] + l3[2] * l4[1])
+        F = (1 - lam) * l1[2] * l2[2] + lam * l3[2] * l4[2]
+
+        coeff = np.array([A, B, C, D, E, F])
         norm = np.linalg.norm(coeff)
         if norm > 1e-12:
             coeff /= norm
-
         return coeff
 
     def classify_conic(self, coeff):
@@ -208,7 +226,7 @@ class ConicDesigner:
         val1 = self.evaluate_conic(coeff1, x0, y0)
         val2 = self.evaluate_conic(coeff2, x0, y0)
         c0_continuous = abs(val1 - val2) < 1e-6
-        
+
         result = {
             'point': point,
             'c0_continuous': c0_continuous,
@@ -218,23 +236,23 @@ class ConicDesigner:
             'jump': abs(val1 - val2)
         }
 
-        if not c0_continuous :
+        if not c0_continuous:
             result['discontinuity_type'] = 'Разрыв C0 (скачок функции)'
             return result
-        
+
         dx1, dy1 = self.get_derivatives(coeff1, x0, y0)
         dx2, dy2 = self.get_derivatives(coeff2, x0, y0)
-        
+
         tangent1 = np.array([-dy1, dx1])
         tangent2 = np.array([-dy2, dx2])
-        
+
         norm1 = np.linalg.norm(tangent1)
         norm2 = np.linalg.norm(tangent2)
 
         if norm1 > 1e-6 and norm2 > 1e-6:
             tangent1 = tangent1 / norm1
             tangent2 = tangent2 / norm2
-            
+
             dot_product = np.clip(np.dot(tangent1, tangent2), -1, 1)
             angle = np.arccos(dot_product) * 180 / np.pi
 
@@ -308,22 +326,22 @@ class ConicDesigner:
     def calculate_and_draw(self):
         if self.P1 is None or self.P3 is None:
             return
-        
-        # Очищаем старые кривые
+
         for coll in self.ax.collections[:]:
             if hasattr(coll, 'get_color') and coll.get_color() in ['blue', 'green']:
                 coll.remove()
-        
+
         self.redraw_base()
 
         self.coeff1 = self.fit_conic_liming(self.P0, self.P2, self.P1, True, False)
-        self.draw_conic(self.coeff1, self.ax, 'blue', '--', 0.5)
+        if self.coeff1 is not None:
+            self.draw_conic(self.coeff1, self.ax, 'blue', '--', 0.5)
 
         self.coeff2 = self.fit_conic_liming(self.P2, self.P4, self.P3, False, True)
-        self.draw_conic(self.coeff2, self.ax, 'green', '--', 0.5)
+        if self.coeff2 is not None:
+            self.draw_conic(self.coeff2, self.ax, 'green', '--', 0.5)
 
         self.draw_composite_black()
-
         self.visualize_continuity()
         self.analyze_conics(self.coeff1, self.coeff2)
         self.fig.canvas.draw_idle()
@@ -336,30 +354,25 @@ class ConicDesigner:
 
         if continuity:
             if not continuity['c0_continuous']:
-                # Разрыв C0 - красный крест
-                self.ax.plot(self.P2[0], self.P2[1], 'rx', markersize=15, markeredgewidth=3, 
-                           label='Разрыв C0', zorder=7)
+                self.ax.plot(self.P2[0], self.P2[1], 'rx', markersize=15, markeredgewidth=3,
+                             label='Разрыв C0', zorder=7)
             elif not continuity.get('c1_continuous', False):
-                # Разрыв C1 (излом) - красный ромб
                 self.ax.plot(self.P2[0], self.P2[1], 'rd', markersize=12, markeredgewidth=2,
-                           label='Излом (C1 разрыв)', zorder=7)
+                             label='Излом (C1 разрыв)', zorder=7)
             else:
-                # Гладкое соединение - зеленый круг
                 self.ax.plot(self.P2[0], self.P2[1], 'go', markersize=12, markeredgewidth=2, zorder=7)
-    
+
     def analyze_conics(self, coeff1, coeff2):
         type1 = self.classify_conic(coeff1)
         type2 = self.classify_conic(coeff2)
-
         continuity = self.check_continuity(coeff1, coeff2, self.P2)
-
         self.update_info_panel(type1, type2, coeff1, coeff2, continuity)
 
     def update_info_panel(self, type1=None, type2=None, coeff1=None, coeff2=None, continuity=None):
         """Обновление информационной панели"""
         self.ax_info.clear()
         self.ax_info.axis('off')
-        
+
         text = "СИММЕТРИЧНОЕ СОСТАВНОЕ КОНИЧЕСКОЕ СЕЧЕНИЕ\n"
         text += "=" * 40 + "\n\n"
 
@@ -397,7 +410,7 @@ class ConicDesigner:
             if continuity:
                 x0, y0 = continuity['point']
                 text += f"\nКоординаты стыка: ({x0:.2f}, {y0:.2f})\n\n"
-                
+
                 if continuity['c0_continuous']:
                     text += "C0 - НЕПРЕРЫВНОСТЬ ВЫПОЛНЕНА\n"
                     text += f"  F1({x0:.2f},{y0:.2f}) = {continuity['left_value']:.6e}\n"
@@ -407,7 +420,7 @@ class ConicDesigner:
                     text += f"  Левое значение: {continuity['left_value']:.6f}\n"
                     text += f"  Правое значение: {continuity['right_value']:.6f}\n"
                     text += f"  Величина скачка: {continuity['jump']:.6f}\n\n"
-                
+
                 if continuity['c0_continuous']:
                     if 'c1_continuous' in continuity:
                         if continuity['c1_continuous']:
@@ -481,7 +494,6 @@ class ConicDesigner:
 
         if self.current_drag_point == 'P2':
             new_y = max(-Y_LINE, min(event.ydata, Y_LINE))
-            # Не даём P2 пересечь установленные точки
             if self.P1:
                 new_y = min(new_y, self.P1[1] - 1.0)
             if self.P3:
