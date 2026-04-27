@@ -24,6 +24,10 @@ class ConicDesigner:
         self.dragging = False
         self.stage = 0  # 0: ожидание P1, 1: ожидание P3
         
+        # Для хранения коэффициентов
+        self.coeff1 = None
+        self.coeff2 = None
+        
         self.setup_plot()
         
         # Подключение событий
@@ -36,7 +40,7 @@ class ConicDesigner:
     
     def setup_plot(self):
         """Настройка графического интерфейса"""
-        self.fig = plt.figure(figsize=(15, 8))
+        self.fig = plt.figure(figsize=(15, 9))
         gs = self.fig.add_gridspec(1, 2, width_ratios=[2.5, 1])
         
         self.ax = self.fig.add_subplot(gs[0])
@@ -103,23 +107,13 @@ class ConicDesigner:
             self.ax.text(self.P3[0] + 0.5, self.P3[1] + 0.5, 'P3', color='magenta', fontsize=11, fontweight='bold')
     
     def reflect_point_across_line(self, point, line_point, is_horizontal=True):
-        """
-        Отражение точки относительно прямой
-        line_point - точка на прямой
-        is_horizontal: True - горизонтальная прямая, False - вертикальная
-        """
+        """Отражение точки относительно прямой"""
         x, y = point
         
         if is_horizontal:
-            # Отражение относительно горизонтальной прямой y = line_point[1]
             return (x, 2 * line_point[1] - y)
         else:
-            # Отражение относительно вертикальной прямой x = line_point[0]
             return (2 * line_point[0] - x, y)
-    
-    def determinant_4x4(self, matrix):
-        """Вычисление определителя матрицы 4x4"""
-        return np.linalg.det(matrix)
     
     def fit_conic_liming(self, p_tangent1, p_tangent2, point_on_conic, 
                         tangent1_horizontal=True, tangent2_vertical=True):
@@ -175,6 +169,90 @@ class ConicDesigner:
         else:
             return "Гипербола"
     
+    def evaluate_conic(self, coeff, x, y):
+        """Вычисление значения коники в точке"""
+        if coeff is None:
+            return 0
+        A, B, C, D, E, F = coeff
+        return A*x*x + B*x*y + C*y*y + D*x + E*y + F
+    
+    def get_derivatives(self, coeff, x, y):
+        """Вычисление производных в точке для неявно заданной кривой"""
+        A, B, C, D, E, F = coeff
+        # dx = dF/dx = 2Ax + By + D
+        # dy = dF/dy = Bx + 2Cy + E
+        dx = 2*A*x + B*y + D
+        dy = B*x + 2*C*y + E
+        return dx, dy
+    
+    def check_continuity(self, coeff1, coeff2, point):
+        """
+        Проверка непрерывности в точке стыка
+        Возвращает словарь с результатами анализа
+        """
+        x0, y0 = point
+        
+        if coeff1 is None or coeff2 is None:
+            return None
+        
+        # Значения на левом и правом сегментах
+        val1 = self.evaluate_conic(coeff1, x0, y0)
+        val2 = self.evaluate_conic(coeff2, x0, y0)
+        
+        # Проверка C0 непрерывности
+        c0_continuous = abs(val1 - val2) < 1e-6
+        
+        result = {
+            'point': point,
+            'c0_continuous': c0_continuous,
+            'discontinuity_type': None,
+            'left_value': val1,
+            'right_value': val2,
+            'jump': abs(val1 - val2)
+        }
+        
+        if not c0_continuous:
+            result['discontinuity_type'] = 'Разрыв C0 (скачок функции)'
+            return result
+        
+        # Проверка C1 непрерывности (гладкости)
+        dx1, dy1 = self.get_derivatives(coeff1, x0, y0)
+        dx2, dy2 = self.get_derivatives(coeff2, x0, y0)
+        
+        # Вычисляем направляющие векторы касательных
+        tangent1 = np.array([-dy1, dx1])
+        tangent2 = np.array([-dy2, dx2])
+        
+        # Нормализуем
+        norm1 = np.linalg.norm(tangent1)
+        norm2 = np.linalg.norm(tangent2)
+        
+        if norm1 > 1e-6 and norm2 > 1e-6:
+            tangent1 = tangent1 / norm1
+            tangent2 = tangent2 / norm2
+            
+            # Вычисляем угол между касательными (в градусах)
+            dot_product = np.clip(np.dot(tangent1, tangent2), -1, 1)
+            angle = np.arccos(dot_product) * 180 / np.pi
+            
+            c1_continuous = angle < 1e-6
+            
+            result['c1_continuous'] = c1_continuous
+            result['angle'] = angle
+            result['tangent1'] = tangent1
+            result['tangent2'] = tangent2
+            
+            if not c1_continuous:
+                result['discontinuity_type'] = f'Разрыв C1 (излом, угол {angle:.2f}°)'
+            else:
+                result['discontinuity_type'] = 'Гладкое соединение'
+        else:
+            result['c1_continuous'] = False
+            result['discontinuity_type'] = 'Неопределенная касательная'
+            result['angle'] = None
+        
+        return result
+    
     def draw_conic(self, coeff, ax, color='blue'):
         """Отрисовка конического сечения"""
         if coeff is None:
@@ -187,11 +265,6 @@ class ConicDesigner:
         X, Y = np.meshgrid(x, y)
         
         Z = A * X**2 + B * X * Y + C * Y**2 + D * X + E * Y + F
-        
-        # Удаляем старые контуры
-        for coll in ax.collections[:]:
-            if hasattr(coll, 'get_color') and coll.get_color() in [color, 'green']:
-                coll.remove()
         
         ax.contour(X, Y, Z, levels=[0], colors=color, linewidths=2.5, alpha=0.8)
     
@@ -209,61 +282,126 @@ class ConicDesigner:
         self.redraw_base()
         
         # Расчет и отрисовка первого сечения (P0-P2) с точкой P1
-        coeff1 = self.fit_conic_liming(self.P0, self.P2, self.P1, True, False)
-        self.draw_conic(coeff1, self.ax, 'blue')
+        self.coeff1 = self.fit_conic_liming(self.P0, self.P2, self.P1, True, False)
+        self.draw_conic(self.coeff1, self.ax, 'blue')
         
         # Расчет и отрисовка второго сечения (P2-P4) с точкой P3
-        coeff2 = self.fit_conic_liming(self.P2, self.P4, self.P3, False, True)
-        self.draw_conic(coeff2, self.ax, 'green')
+        self.coeff2 = self.fit_conic_liming(self.P2, self.P4, self.P3, False, True)
+        self.draw_conic(self.coeff2, self.ax, 'green')
         
-
-        self.analyze_conics(coeff1, coeff2)
+        # Визуализируем точку стыка с учетом непрерывности
+        self.visualize_continuity()
+        
+        self.analyze_conics(self.coeff1, self.coeff2)
         self.fig.canvas.draw_idle()
     
+    def visualize_continuity(self):
+        """Визуализация точки стыка в зависимости от типа непрерывности"""
+        if self.coeff1 is None or self.coeff2 is None:
+            return
+        
+        continuity = self.check_continuity(self.coeff1, self.coeff2, self.P2)
+        
+        if continuity:
+            if not continuity['c0_continuous']:
+                # Разрыв C0 - красный крест
+                self.ax.plot(self.P2[0], self.P2[1], 'rx', markersize=15, markeredgewidth=3, 
+                           label='Разрыв C0')
+            elif not continuity.get('c1_continuous', False):
+                # Разрыв C1 (излом) - желтая звезда
+                self.ax.plot(self.P2[0], self.P2[1], 'y*', markersize=15, markeredgewidth=2,
+                           label='Излом (C1 разрыв)')
+            else:
+                # Гладкое соединение - зеленый круг
+                self.ax.plot(self.P2[0], self.P2[1], 'go', markersize=12, markeredgewidth=2,
+                           label='Гладкое соединение')
+    
     def analyze_conics(self, coeff1, coeff2):
-        """Анализ обоих конических сечений"""
+        """Анализ обоих конических сечений и непрерывности"""
         type1 = self.classify_conic(coeff1)
         type2 = self.classify_conic(coeff2)
         
-        self.update_info_panel(type1, type2, coeff1, coeff2)
+        continuity = self.check_continuity(coeff1, coeff2, self.P2)
+        
+        self.update_info_panel(type1, type2, coeff1, coeff2, continuity)
     
-    def update_info_panel(self, type1=None, type2=None, coeff1=None, coeff2=None):
-        """Обновление информационной панели"""
+    def update_info_panel(self, type1=None, type2=None, coeff1=None, coeff2=None, continuity=None):
+        """Обновление информационной панели с анализом непрерывности"""
         self.ax_info.clear()
         self.ax_info.axis('off')
         
         text = "СОСТАВНОЕ КОНИЧЕСКОЕ СЕЧЕНИЕ\n"
-        text += "=" * 35 + "\n\n"
+        text += "=" * 40 + "\n\n"
         
         text += "КАСАТЕЛЬНЫЕ:\n"
-        text += f"P0 ({self.P0[0]}, {self.P0[1]}) → горизонтальная\n"
-        text += f"P2 ({self.P2[0]:.1f}, {self.P2[1]:.2f}) → вертикальная\n"
-        text += f"P4 ({self.P4[0]}, {self.P4[1]}) → горизонтальная\n\n"
+        text += f"  P0 ({self.P0[0]}, {self.P0[1]}) → горизонтальная\n"
+        text += f"  P2 ({self.P2[0]:.1f}, {self.P2[1]:.2f}) → вертикальная\n"
+        text += f"  P4 ({self.P4[0]}, {self.P4[1]}) → горизонтальная\n\n"
         
         if self.P1:
-            text += f"ТОЧКИ НА КОНИКЕ:\n"
-            text += f"P1: ({self.P1[0]:.2f}, {self.P1[1]:.2f})\n"
-        if self.P3:
-            text += f"P3: ({self.P3[0]:.2f}, {self.P3[1]:.2f})\n\n"
+            text += "ТОЧКИ НА КОНИКЕ:\n"
+            text += f"  P1: ({self.P1[0]:.2f}, {self.P1[1]:.2f})\n"
+            text += f"  P3: ({self.P3[0]:.2f}, {self.P3[1]:.2f})\n\n"
         
         if type1 and type2:
-            text += "─" * 35 + "\n"
+            text += "─" * 40 + "\n"
             text += "СЕГМЕНТ 1: P0 → P1 → P2\n"
-            text += f"Тип: {type1}\n"
+            text += f"  Тип: {type1}\n"
             if coeff1 is not None:
                 A, B, C, D, E, F = coeff1
-                text += f"{A:.3f}x² + {B:.3f}xy + {C:.3f}y²\n"
-                text += f"+ {D:.3f}x + {E:.3f}y + {F:.3f} = 0\n"
+                text += f"  {A:+.6f}x² {B:+.6f}xy {C:+.6f}y²\n"
+                text += f"  {D:+.6f}x {E:+.6f}y {F:+.6f} = 0\n"
             text += "\n"
             
             text += "СЕГМЕНТ 2: P2 → P3 → P4\n"
-            text += f"Тип: {type2}\n"
+            text += f"  Тип: {type2}\n"
             if coeff2 is not None:
                 A, B, C, D, E, F = coeff2
-                text += f"\n{A:.3f}·x² + {B:.3f}·xy + {C:.3f}·y²\n"
-                text += f"+ {D:.3f}·x + {E:.3f}·y + {F:.3f} = 0\n"
+                text += f"  {A:+.6f}x² {B:+.6f}xy {C:+.6f}y²\n"
+                text += f"  {D:+.6f}x {E:+.6f}y {F:+.6f} = 0\n"
+            text += "\n"
+            
+            text += "═" * 40 + "\n"
+            text += "АНАЛИЗ НЕПРЕРЫВНОСТИ В ТОЧКЕ P2\n"
+            text += "═" * 40 + "\n"
+            
+            if continuity:
+                x0, y0 = continuity['point']
+                text += f"\nКоординаты стыка: ({x0:.2f}, {y0:.2f})\n\n"
+                
+                # Проверка C0
+                if continuity['c0_continuous']:
+                    text += "✓ C0 - непрерывность выполнена\n"
+                    text += f"  F1({x0:.2f},{y0:.2f}) = {continuity['left_value']:.6f}\n"
+                    text += f"  F2({x0:.2f},{y0:.2f}) = {continuity['right_value']:.6f}\n\n"
+                else:
+                    text += "✗ C0 - НЕПРЕРЫВНОСТЬ НАРУШЕНА!\n"
+                    text += f"  Левое значение: {continuity['left_value']:.6f}\n"
+                    text += f"  Правое значение: {continuity['right_value']:.6f}\n"
+                    text += f"  Величина скачка: {continuity['jump']:.6f}\n\n"
+                
+                # Проверка C1 (только если C0 выполнена)
+                if continuity['c0_continuous']:
+                    if 'c1_continuous' in continuity:
+                        if continuity['c1_continuous']:
+                            text += "✓ C1 - гладкое соединение\n"
+                            text += "  Касательные совпадают по направлению\n"
+                        else:
+                            text += "✗ C1 - НЕПРЕРЫВНОСТЬ НАРУШЕНА (излом)\n"
+                            if 'angle' in continuity and continuity['angle'] is not None:
+                                text += f"  Угол между касательными: {continuity['angle']:.2f}°\n"
+                            if 'tangent1' in continuity and continuity['tangent1'] is not None:
+                                text += f"  Касательная слева: ({continuity['tangent1'][0]:.4f}, {continuity['tangent1'][1]:.4f})\n"
+                            if 'tangent2' in continuity and continuity['tangent2'] is not None:
+                                text += f"  Касательная справа: ({continuity['tangent2'][0]:.4f}, {continuity['tangent2'][1]:.4f})\n"
+                    else:
+                        text += "? C1 - не удалось определить\n"
+                
+                text += f"\nТИП СОЕДИНЕНИЯ: {continuity['discontinuity_type']}\n"
+            else:
+                text += "\nНевозможно определить непрерывность\n"
         
-        self.ax_info.text(0.05, 0.95, text, fontsize=9, family='monospace',
+        self.ax_info.text(0.05, 0.95, text, fontsize=8, family='monospace',
                          va='top', transform=self.ax_info.transAxes,
                          bbox=dict(boxstyle='round', facecolor='lightyellow', 
                                   edgecolor='gray', alpha=0.9))
@@ -315,7 +453,7 @@ class ConicDesigner:
             return
         
         if self.current_drag_point == 'P2':
-            new_x = -10
+            new_x = -X_LINE
             new_y = max(self.y_min + 1, min(event.ydata, self.y_max - 1))
             self.P2 = (new_x, new_y)
             
@@ -351,6 +489,8 @@ class ConicDesigner:
         """Очистка пользовательских точек"""
         self.P1 = None
         self.P3 = None
+        self.coeff1 = None
+        self.coeff2 = None
         self.stage = 0
         self.redraw_base()
         self.update_info_panel()
