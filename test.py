@@ -160,17 +160,26 @@ class ConicDesigner:
         return coeff
     
     def classify_conic(self, coeff):
-        """Классификация типа конического сечения"""
-        A, B, C, _, _, _ = coeff
+        """Устойчивая классификация конического сечения"""
+        A, B, C, D, E, F = coeff
+
+        norm = max(abs(A), abs(B), abs(C), abs(D), abs(E), abs(F))
+        if norm < 1e-12:
+            return "Вырожденная"
+        
+        A /= norm
+        B /= norm
+        C /= norm
+        
         delta = B ** 2 - 4 * A * C
         
-        if abs(delta) < 1e-4:
+        if abs(delta) < 1e-10:
             return "Парабола"
         elif delta < 0:
             return "Эллипс"
         else:
             return "Гипербола"
-    
+        
     def evaluate_conic(self, coeff, x, y):
         """Вычисление значения коники в точке"""
         if coeff is None:
