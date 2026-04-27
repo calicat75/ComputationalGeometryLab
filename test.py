@@ -70,25 +70,30 @@ class ConicDesigner:
 
     def draw_fixed_points(self):
         self.ax.plot(self.P0[0], self.P0[1], 'gs', markersize=12, markeredgewidth=2, alpha=0.5, zorder=5)
+        self.ax.plot(self.P0[0], self.P0[1], 'gs', markersize=12, markeredgewidth=2, alpha=0.5, zorder=5)
         self.ax.plot([self.P0[0] - 2, self.P0[0] + 2], [self.P0[1], self.P0[1]],
                      'r-', linewidth=2, alpha=0.7, zorder=4)
         self.ax.text(self.P0[0] + 0.5, self.P0[1] + 0.5, 'P0', fontsize=12, fontweight='bold', zorder=6)
 
+        self.ax.plot(self.P4[0], self.P4[1], 'gs', markersize=12, markeredgewidth=2, zorder=5, alpha=0.5)
         self.ax.plot(self.P4[0], self.P4[1], 'gs', markersize=12, markeredgewidth=2, zorder=5, alpha=0.5)
         self.ax.plot([self.P4[0] - 2, self.P4[0] + 2], [self.P4[1], self.P4[1]],
                      'r-', linewidth=2, alpha=0.7, zorder=4)
         self.ax.text(self.P4[0] + 0.5, self.P4[1] - 1, 'P4', fontsize=12, fontweight='bold', zorder=6)
 
         self.ax.plot(self.P2[0], self.P2[1], 'bs', markersize=12, markeredgewidth=2, zorder=5, alpha=0.5)
+        self.ax.plot(self.P2[0], self.P2[1], 'bs', markersize=12, markeredgewidth=2, zorder=5, alpha=0.5)
         self.ax.plot([self.P2[0], self.P2[0]], [self.P2[1] - 2, self.P2[1] + 2],
                      'r-', linewidth=2, alpha=0.7, zorder=4)
         self.ax.text(self.P2[0] - 2, self.P2[1], 'P2', fontsize=12, fontweight='bold', zorder=6)
+        self.ax.text(self.P2[0] - 2, self.P2[1], 'P2', fontsize=12, fontweight='bold', zorder=6)
 
         if self.P1:
-            self.ax.plot(self.P1[0], self.P1[1], 'ro', markersize=10, zorder=5 alpha=0.5)
+            self.ax.plot(self.P1[0], self.P1[1], 'ro', markersize=10, zorder=5, alpha=0.5)
             self.ax.text(self.P1[0] + 0.5, self.P1[1] + 0.5, 'P1', color='red', fontsize=11, fontweight='bold')
         
         if self.P3:
+            self.ax.plot(self.P3[0], self.P3[1], 'ro', markersize=10, zorder=5, alpha=0.5)
             self.ax.plot(self.P3[0], self.P3[1], 'ro', markersize=10, zorder=5, alpha=0.5)
             self.ax.text(self.P3[0] + 0.5, self.P3[1] + 0.5, 'P3', color='red', fontsize=11, fontweight='bold',
                          zorder=6)
@@ -143,6 +148,8 @@ class ConicDesigner:
             point_on_conic,
             mirrored2,
             self.P2  
+            mirrored2,
+            self.P2  
         ])
 
         x = pts[:, 0]
@@ -162,10 +169,13 @@ class ConicDesigner:
         norm = np.linalg.norm(coeff)
         if norm > 1e-12:
             coeff /= norm
+        if norm > 1e-12:
+            coeff /= norm
 
         return coeff
 
     def classify_conic(self, coeff):
+        """Классификация конического сечения"""
         """Классификация конического сечения"""
         A, B, C, D, E, F = coeff
 
@@ -200,6 +210,7 @@ class ConicDesigner:
 
     def check_continuity(self, coeff1, coeff2, point):
         """Проверка непрерывности в точке стыка"""
+        """Проверка непрерывности в точке стыка"""
         x0, y0 = point
 
         if coeff1 is None or coeff2 is None:
@@ -207,6 +218,8 @@ class ConicDesigner:
 
         val1 = self.evaluate_conic(coeff1, x0, y0)
         val2 = self.evaluate_conic(coeff2, x0, y0)
+        c0_continuous = abs(val1 - val2) < 1e-6
+        
         c0_continuous = abs(val1 - val2) < 1e-6
         
         result = {
@@ -222,11 +235,14 @@ class ConicDesigner:
             result['discontinuity_type'] = 'Разрыв C0 (скачок функции)'
             return result
         
+        
         dx1, dy1 = self.get_derivatives(coeff1, x0, y0)
         dx2, dy2 = self.get_derivatives(coeff2, x0, y0)
         
+        
         tangent1 = np.array([-dy1, dx1])
         tangent2 = np.array([-dy2, dx2])
+        
         
         norm1 = np.linalg.norm(tangent1)
         norm2 = np.linalg.norm(tangent2)
@@ -234,6 +250,7 @@ class ConicDesigner:
         if norm1 > 1e-6 and norm2 > 1e-6:
             tangent1 = tangent1 / norm1
             tangent2 = tangent2 / norm2
+            
             
             dot_product = np.clip(np.dot(tangent1, tangent2), -1, 1)
             angle = np.arccos(dot_product) * 180 / np.pi
@@ -314,6 +331,12 @@ class ConicDesigner:
             if hasattr(coll, 'get_color') and coll.get_color() in ['blue', 'green']:
                 coll.remove()
         
+        
+        # Очищаем старые кривые
+        for coll in self.ax.collections[:]:
+            if hasattr(coll, 'get_color') and coll.get_color() in ['blue', 'green']:
+                coll.remove()
+        
         self.redraw_base()
 
         self.coeff1 = self.fit_conic_liming(self.P0, self.P2, self.P1, True, False)
@@ -339,7 +362,13 @@ class ConicDesigner:
                 # Разрыв C0 - красный крест
                 self.ax.plot(self.P2[0], self.P2[1], 'rx', markersize=15, markeredgewidth=3, 
                            label='Разрыв C0', zorder=7)
+                # Разрыв C0 - красный крест
+                self.ax.plot(self.P2[0], self.P2[1], 'rx', markersize=15, markeredgewidth=3, 
+                           label='Разрыв C0', zorder=7)
             elif not continuity.get('c1_continuous', False):
+                # Разрыв C1 (излом) - красный ромб
+                self.ax.plot(self.P2[0], self.P2[1], 'rd', markersize=12, markeredgewidth=2,
+                           label='Излом (C1 разрыв)', zorder=7)
                 # Разрыв C1 (излом) - красный ромб
                 self.ax.plot(self.P2[0], self.P2[1], 'rd', markersize=12, markeredgewidth=2,
                            label='Излом (C1 разрыв)', zorder=7)
@@ -357,8 +386,11 @@ class ConicDesigner:
 
     def update_info_panel(self, type1=None, type2=None, coeff1=None, coeff2=None, continuity=None):
         """Обновление информационной панели"""
+        """Обновление информационной панели"""
         self.ax_info.clear()
         self.ax_info.axis('off')
+        
+        text = "СИММЕТРИЧНОЕ СОСТАВНОЕ КОНИЧЕСКОЕ СЕЧЕНИЕ\n"
         
         text = "СИММЕТРИЧНОЕ СОСТАВНОЕ КОНИЧЕСКОЕ СЕЧЕНИЕ\n"
 
@@ -400,12 +432,17 @@ class ConicDesigner:
                 x0, y0 = continuity['point']
                 text += f"\nКоординаты стыка: ({x0:.2f}, {y0:.2f})\n\n"
                 
+                
                 if continuity['c0_continuous']:
                     text += "C0 - НЕПРЕРЫВНОСТЬ ВЫПОЛНЕНА\n"
                     text += f"  F1({x0:.2f},{y0:.2f}) = {continuity['left_value']:.6e}\n"
                     text += f"  F2({x0:.2f},{y0:.2f}) = {continuity['right_value']:.6e}\n\n"
                 else:
                     text += "C0 - НЕПРЕРЫВНОСТЬ НАРУШЕНА\n"
+                    text += f"  Левое значение: {continuity['left_value']:.6f}\n"
+                    text += f"  Правое значение: {continuity['right_value']:.6f}\n"
+                    text += f"  Величина скачка: {continuity['jump']:.6f}\n\n"
+                
                     text += f"  Левое значение: {continuity['left_value']:.6f}\n"
                     text += f"  Правое значение: {continuity['right_value']:.6f}\n"
                     text += f"  Величина скачка: {continuity['jump']:.6f}\n\n"
