@@ -5,6 +5,7 @@ from matplotlib.widgets import Button
 X_LINE = 20
 Y_LINE = 30
 RECTANGLE_LIMIT = 50
+P2_MOTION_COEFFICIENT = 0.25
 
 
 class ConicDesigner:
@@ -566,9 +567,9 @@ class ConicDesigner:
         if self.current_drag_point == 'P2':
             new_y = max(-Y_LINE, min(event.ydata, Y_LINE))
             if self.P1:
-                new_y = min(new_y, self.P1[1] - 1.0)
+                new_y = min(new_y, self.P1[1] - P2_MOTION_COEFFICIENT)
             if self.P3:
-                new_y = max(new_y, self.P3[1] + 1.0)
+                new_y = max(new_y, self.P3[1] + P2_MOTION_COEFFICIENT)
 
             self.P2 = (-X_LINE, new_y)
 
