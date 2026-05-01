@@ -319,7 +319,6 @@ class ConicDesigner:
                             markeredgewidth=2, zorder=7, alpha=transparency,
                             label='C1 гладкость')
 
-
     def draw_conic(self, coeff, ax, color='blue', linestyle='-', transparency=0.5):
         if coeff is None:
             return
@@ -412,6 +411,7 @@ class ConicDesigner:
         # Рисуем правую часть (зеркальное отражение, x > 0)
         self.ax.plot(-xs_up, ys_up, 'k-', linewidth=1.5, zorder=3)
         self.ax.plot(-xs_down, ys_down, 'k-', linewidth=1.5, zorder=3)
+        
     def calculate_and_draw(self):
         if self.P1 is None or self.P3 is None:
             return
@@ -446,8 +446,9 @@ class ConicDesigner:
         self.ax_info.clear()
         self.ax_info.axis('off')
 
-        text = "СИММЕТРИЧНОЕ СОСТАВНОЕ КОНИЧЕСКОЕ СЕЧЕНИЕ\n"
-        text += "=" * 40 + "\n\n"
+        text = "=" * 50 + "\n"
+        text += "СИММЕТРИЧНОЕ СОСТАВНОЕ КОНИЧЕСКОЕ СЕЧЕНИЕ\n"
+        text += "=" * 50 + "\n\n"
 
         text += "КАСАТЕЛЬНЫЕ:\n"
         text += f"  P0 ({self.P0[0]}, {self.P0[1]}) → горизонтальная\n"
@@ -474,9 +475,16 @@ class ConicDesigner:
             text += f"  {A:+.6f}x² {B:+.6f}xy {C:+.6f}y²\n"
             text += f"  {D:+.6f}x {E:+.6f}y {F:+.6f} = 0\n\n"
 
-            text += "═" * 40 + "\n"
+            text += "═" * 45 + "\n"
             text += "АНАЛИЗ НЕПРЕРЫВНОСТИ В ТОЧКЕ P2\n"
-            text += "═" * 40 + "\n"
+            text += "═" * 45 + "\n"
+
+            # Встроенная легенда маркеров
+            text += "\nЛЕГЕНДА МАРКЕРОВ:\n"
+            text += "  ✕ — C0 разрыв: скачок функции\n"
+            text += "  ◆ — G1 разрыв: излом кривой\n"
+            text += "  ●  желтый — G1 гладкое, C1 разрыв\n"
+            text += "  ● зеленый — C1 гладкое соединение\n"
 
             if continuity:
                 x0, y0 = continuity['point']
@@ -498,7 +506,7 @@ class ConicDesigner:
                             if 'tangent_magnitude_1' in continuity:
                                 text += f"  |T1| = {continuity['tangent_magnitude_1']:.4f}\n"
                                 text += f"  |T2| = {continuity['tangent_magnitude_2']:.4f}\n"
-                                text += f"  Отношение: {continuity['tangent_ratio']:.4f}\n"
+                                text += f"  Отношение: {continuity['tangent_ratio']:.7f}\n"
                     else:
                         if 'angle' in continuity:
                             text += f"G1 - НАРУШЕНА (угол {continuity['angle']:.2f}°)\n"
