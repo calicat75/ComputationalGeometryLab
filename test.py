@@ -499,7 +499,10 @@ class ConicDesigner:
                                 text += f"  |T2| = {continuity['tangent_magnitude_2']:.4f}\n"
                                 text += f"  Отношение: {continuity['tangent_ratio']:.4f}\n"
                     else:
-                        text += f"G1 - НАРУШЕНА (угол {continuity['angle']:.2f}°)\n"
+                        if 'angle' in continuity:
+                            text += f"G1 - НАРУШЕНА (угол {continuity['angle']:.2f}°)\n"
+                        else:
+                            text += f"G1 - {continuity['discontinuity_type']}\n"
 
                 text += f"\nТИП: {continuity['discontinuity_type']}\n"
             else:
