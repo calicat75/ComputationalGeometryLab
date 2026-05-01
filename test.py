@@ -216,13 +216,14 @@ class ConicDesigner:
         dy = B * x + 2 * C * y + E
         return dx, dy
 
-    def check_continuity(self, coeff1, coeff2, point):
+    def check_continuity_c1(self, coeff1, coeff2, point):
         """Проверка непрерывности в точке стыка"""
         x0, y0 = point
 
         if coeff1 is None or coeff2 is None:
             return None
 
+        # C0 проверка
         val1 = self.evaluate_conic(coeff1, x0, y0)
         val2 = self.evaluate_conic(coeff2, x0, y0)
         c0_continuous = abs(val1 - val2) < 1e-6
@@ -230,6 +231,8 @@ class ConicDesigner:
         result = {
             'point': point,
             'c0_continuous': c0_continuous,
+            'g1_continuous': False,
+            'c1_continuous': False,
             'discontinuity_type': None,
             'left_value': val1,
             'right_value': val2,
@@ -240,40 +243,80 @@ class ConicDesigner:
             result['discontinuity_type'] = 'Разрыв C0 (скачок функции)'
             return result
 
+        # Вычисляем градиенты (нормали к кривой)
         dx1, dy1 = self.get_derivatives(coeff1, x0, y0)
         dx2, dy2 = self.get_derivatives(coeff2, x0, y0)
 
+        # Касательные векторы (перпендикулярны нормалям)
         tangent1 = np.array([-dy1, dx1])
         tangent2 = np.array([-dy2, dx2])
 
         norm1 = np.linalg.norm(tangent1)
         norm2 = np.linalg.norm(tangent2)
 
-        if norm1 > 1e-6 and norm2 > 1e-6:
-            tangent1 = tangent1 / norm1
-            tangent2 = tangent2 / norm2
+        if norm1 < 1e-6 or norm2 < 1e-6:
+            result['discontinuity_type'] = 'Особая точка (нулевой градиент)'
+            return result
 
-            dot_product = np.clip(np.dot(tangent1, tangent2), -1, 1)
-            angle = np.arccos(dot_product) * 180 / np.pi
+        # Нормализованные касательные
+        dir1 = tangent1 / norm1
+        dir2 = tangent2 / norm2
 
-            # G1: касательные коллинеарны (0° или 180°)
-            is_collinear = abs(abs(dot_product) - 1.0) < 1e-3
+        # G1 проверка: совпадение направлений
+        dot_product = abs(np.clip(np.dot(dir1, dir2), -1, 1))
+        g1_continuous = abs(dot_product - 1.0) < 1e-3
 
-            result['c1_continuous'] = is_collinear
-            result['angle'] = angle
-            result['tangent1'] = tangent1
-            result['tangent2'] = tangent2
+        result['g1_continuous'] = g1_continuous
+        result['angle'] = np.arccos(dot_product) * 180 / np.pi
 
-            if is_collinear:
-                result['discontinuity_type'] = 'Гладкое соединение (G1)'
-            else:
-                result['discontinuity_type'] = f'Разрыв C1 (излом, угол {angle:.2f}°)'
+        # C1 проверка: совпадение направлений И величин
+        tangent_ratio = norm1 / norm2 if norm2 > 1e-12 else float('inf')
+        c1_continuous = g1_continuous and abs(tangent_ratio - 1.0) < 1e-2
+
+        result['c1_continuous'] = c1_continuous
+        result['tangent_magnitude_1'] = norm1
+        result['tangent_magnitude_2'] = norm2
+        result['tangent_ratio'] = tangent_ratio
+
+        if c1_continuous:
+            result['discontinuity_type'] = 'C1 гладкое соединение'
+        elif g1_continuous:
+            result['discontinuity_type'] = f'G1 (разрыв C1, отношение производных {tangent_ratio:.3f})'
         else:
-            result['c1_continuous'] = False
-            result['discontinuity_type'] = 'Неопределенная касательная'
-            result['angle'] = None
+            result['discontinuity_type'] = f'Разрыв G1 (излом, угол {result["angle"]:.2f}°)'
 
         return result
+
+    def visualize_continuity_c1(self):
+        """Визуализация с различными маркерами для C0, G1, C1"""
+        if self.coeff1 is None or self.coeff2 is None:
+            return
+
+        continuity = self.check_continuity_c1(self.coeff1, self.coeff2, self.P2)
+        transparency = 0.7
+        
+        if continuity:
+            if not continuity['c0_continuous']:
+                # C0 разрыв - красный крест
+                self.ax.plot(self.P2[0], self.P2[1], 'rx', markersize=20, 
+                            markeredgewidth=4, zorder=7, alpha=transparency,
+                            label='C0 разрыв')
+            elif not continuity['g1_continuous']:
+                # G1 разрыв - красный ромб
+                self.ax.plot(self.P2[0], self.P2[1], 'rd', markersize=15, 
+                            markeredgewidth=3, zorder=7, alpha=transparency,
+                            label='G1 разрыв')
+            elif not continuity['c1_continuous']:
+                # C1 разрыв (но G1 есть) - желтый круг
+                self.ax.plot(self.P2[0], self.P2[1], 'yo', markersize=15, 
+                            markeredgewidth=2, zorder=7, alpha=transparency,
+                            label='G1, не C1')
+            else:
+                # C1 гладкость - зеленый круг
+                self.ax.plot(self.P2[0], self.P2[1], 'go', markersize=15, 
+                            markeredgewidth=2, zorder=7, alpha=transparency,
+                            label='C1 гладкость')
+
 
     def draw_conic(self, coeff, ax, color='blue', linestyle='-', transparency=0.5):
         if coeff is None:
@@ -316,12 +359,12 @@ class ConicDesigner:
         # Верхняя дуга (P0 -> P2)
         xs_up, ys_up = get_branch(self.coeff1, [-X_LINE, 0], 'upper')
         self.ax.plot(xs_up, ys_up, 'k-', linewidth=1.5, zorder=3)
-        self.ax.plot(-xs_up, ys_up, 'k-', linewidth=1.5, zorder=3)  # Симметрия
+        self.ax.plot(-xs_up, ys_up, 'k-', linewidth=1.5, zorder=3)
 
         # Нижняя дуга (P2 -> P4)
         xs_low, ys_low = get_branch(self.coeff2, [-X_LINE, 0], 'lower')
         self.ax.plot(xs_low, ys_low, 'k-', linewidth=1.5, zorder=3)
-        self.ax.plot(-xs_low, ys_low, 'k-', linewidth=1.5, zorder=3)  # Симметрия
+        self.ax.plot(-xs_low, ys_low, 'k-', linewidth=1.5, zorder=3)
 
     def calculate_and_draw(self):
         if self.P1 is None or self.P3 is None:
@@ -342,30 +385,14 @@ class ConicDesigner:
             self.draw_conic(self.coeff2, self.ax, 'green', '--', 0.5)
 
         self.draw_composite_black()
-        self.visualize_continuity()
+        self.visualize_continuity_c1()
         self.analyze_conics(self.coeff1, self.coeff2)
         self.fig.canvas.draw_idle()
-
-    def visualize_continuity(self):
-        if self.coeff1 is None or self.coeff2 is None:
-            return
-
-        continuity = self.check_continuity(self.coeff1, self.coeff2, self.P2)
-
-        if continuity:
-            if not continuity['c0_continuous']:
-                self.ax.plot(self.P2[0], self.P2[1], 'rx', markersize=15, markeredgewidth=3,
-                             label='Разрыв C0', zorder=7)
-            elif not continuity.get('c1_continuous', False):
-                self.ax.plot(self.P2[0], self.P2[1], 'rd', markersize=12, markeredgewidth=2,
-                             label='Излом (C1 разрыв)', zorder=7)
-            else:
-                self.ax.plot(self.P2[0], self.P2[1], 'go', markersize=12, markeredgewidth=2, zorder=7)
 
     def analyze_conics(self, coeff1, coeff2):
         type1 = self.classify_conic(coeff1)
         type2 = self.classify_conic(coeff2)
-        continuity = self.check_continuity(coeff1, coeff2, self.P2)
+        continuity = self.check_continuity_c1(coeff1, coeff2, self.P2)
         self.update_info_panel(type1, type2, coeff1, coeff2, continuity)
 
     def update_info_panel(self, type1=None, type2=None, coeff1=None, coeff2=None, continuity=None):
@@ -393,15 +420,13 @@ class ConicDesigner:
             text += f"  Тип: {type1}\n"
             A, B, C, D, E, F = coeff1
             text += f"  {A:+.6f}x² {B:+.6f}xy {C:+.6f}y²\n"
-            text += f"  {D:+.6f}x {E:+.6f}y {F:+.6f} = 0\n"
-            text += "\n"
+            text += f"  {D:+.6f}x {E:+.6f}y {F:+.6f} = 0\n\n"
 
             text += "СЕГМЕНТ 2: P2 → P3 → P4\n"
             text += f"  Тип: {type2}\n"
             A, B, C, D, E, F = coeff2
             text += f"  {A:+.6f}x² {B:+.6f}xy {C:+.6f}y²\n"
-            text += f"  {D:+.6f}x {E:+.6f}y {F:+.6f} = 0\n"
-            text += "\n"
+            text += f"  {D:+.6f}x {E:+.6f}y {F:+.6f} = 0\n\n"
 
             text += "═" * 40 + "\n"
             text += "АНАЛИЗ НЕПРЕРЫВНОСТИ В ТОЧКЕ P2\n"
@@ -413,33 +438,31 @@ class ConicDesigner:
 
                 if continuity['c0_continuous']:
                     text += "C0 - НЕПРЕРЫВНОСТЬ ВЫПОЛНЕНА\n"
-                    text += f"  F1({x0:.2f},{y0:.2f}) = {continuity['left_value']:.6e}\n"
-                    text += f"  F2({x0:.2f},{y0:.2f}) = {continuity['right_value']:.6e}\n\n"
                 else:
                     text += "C0 - НЕПРЕРЫВНОСТЬ НАРУШЕНА\n"
-                    text += f"  Левое значение: {continuity['left_value']:.6f}\n"
-                    text += f"  Правое значение: {continuity['right_value']:.6f}\n"
                     text += f"  Величина скачка: {continuity['jump']:.6f}\n\n"
 
                 if continuity['c0_continuous']:
-                    if 'c1_continuous' in continuity:
+                    if continuity['g1_continuous']:
+                        text += "G1 - ГЕОМЕТРИЧЕСКАЯ ГЛАДКОСТЬ\n"
                         if continuity['c1_continuous']:
-                            text += "C1 - ГЛАДКОЕ СОЕДИНЕНИЕ (G1)\n"
-                            text += "  Касательные коллинеарны (совпадает касательная прямая)\n"
+                            text += "C1 - НЕПРЕРЫВНОСТЬ ПЕРВОЙ ПРОИЗВОДНОЙ\n"
                         else:
-                            text += "C1 - НЕПРЕРЫВНОСТЬ НАРУШЕНА (излом)\n"
-                            if 'angle' in continuity and continuity['angle'] is not None:
-                                text += f"  Угол между касательными: {continuity['angle']:.2f}°\n"
+                            text += "C1 - НАРУШЕНА (разная скорость изменения)\n"
+                            if 'tangent_magnitude_1' in continuity:
+                                text += f"  |T1| = {continuity['tangent_magnitude_1']:.4f}\n"
+                                text += f"  |T2| = {continuity['tangent_magnitude_2']:.4f}\n"
+                                text += f"  Отношение: {continuity['tangent_ratio']:.4f}\n"
                     else:
-                        text += "? C1 - не удалось определить\n"
+                        text += f"G1 - НАРУШЕНА (угол {continuity['angle']:.2f}°)\n"
 
-                text += f"\nТИП СОЕДИНЕНИЯ: {continuity['discontinuity_type']}\n"
+                text += f"\nТИП: {continuity['discontinuity_type']}\n"
             else:
                 text += "\nНевозможно определить непрерывность\n"
 
         self.ax_info.text(0.05, 0.95, text, fontsize=8, family='monospace',
-                          va='top', transform=self.ax_info.transAxes,
-                          bbox=dict(boxstyle='round', facecolor='lightyellow',
+                        va='top', transform=self.ax_info.transAxes,
+                        bbox=dict(boxstyle='round', facecolor='lightyellow',
                                     edgecolor='gray', alpha=0.9))
 
         self.fig.canvas.draw_idle()
