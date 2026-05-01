@@ -4,7 +4,7 @@ from matplotlib.widgets import Button
 
 X_LINE = 20
 Y_LINE = 30
-RECTANGLE_LIMIT = 40
+RECTANGLE_LIMIT = 50
 
 
 class ConicDesigner:
@@ -69,17 +69,18 @@ class ConicDesigner:
         self.update_info_panel()
 
     def draw_fixed_points(self):
-        self.ax.plot(self.P0[0], self.P0[1], 'gs', markersize=12, markeredgewidth=2, alpha=0.5, zorder=5)
+        point_color="#093093"
+        self.ax.plot(self.P0[0], self.P0[1], 's', color=point_color, markersize=12, markeredgewidth=2, alpha=0.5, zorder=5)
         self.ax.plot([self.P0[0] - 2, self.P0[0] + 2], [self.P0[1], self.P0[1]],
                      'r-', linewidth=2, alpha=0.7, zorder=4)
         self.ax.text(self.P0[0] + 0.5, self.P0[1] + 0.5, 'P0', fontsize=12, fontweight='bold', zorder=6)
 
-        self.ax.plot(self.P4[0], self.P4[1], 'gs', markersize=12, markeredgewidth=2, zorder=5, alpha=0.5)
+        self.ax.plot(self.P4[0], self.P4[1], 's', color=point_color, markersize=12, markeredgewidth=2, zorder=5, alpha=0.5)
         self.ax.plot([self.P4[0] - 2, self.P4[0] + 2], [self.P4[1], self.P4[1]],
                      'r-', linewidth=2, alpha=0.7, zorder=4)
         self.ax.text(self.P4[0] + 0.5, self.P4[1] - 1, 'P4', fontsize=12, fontweight='bold', zorder=6)
 
-        self.ax.plot(self.P2[0], self.P2[1], 'bs', markersize=12, markeredgewidth=2, zorder=5, alpha=0.5)
+        self.ax.plot(self.P2[0], self.P2[1], 's', color=point_color, markersize=12, markeredgewidth=2, zorder=5, alpha=0.5)
         self.ax.plot([self.P2[0], self.P2[0]], [self.P2[1] - 2, self.P2[1] + 2],
                      'r-', linewidth=2, alpha=0.7, zorder=4)
         self.ax.text(self.P2[0] - 2, self.P2[1], 'P2', fontsize=12, fontweight='bold', zorder=6)
@@ -100,17 +101,17 @@ class ConicDesigner:
                 patch.remove()
 
         rect1 = plt.Rectangle((-X_LINE, self.P2[1]), X_LINE, Y_LINE - self.P2[1],
-                              facecolor='yellow', alpha=0.15, edgecolor='orange', linestyle='--', label='valid_zone',
+                              facecolor='blue', alpha=0.1, edgecolor='darkblue', linestyle='--', label='valid_zone',
                               zorder=1)
         self.ax.add_patch(rect1)
-        self.ax.text(-X_LINE / 2, (self.P2[1] + Y_LINE) / 2, 'Зона для P1', ha='center', color='orange', alpha=0.6,
+        self.ax.text(-X_LINE / 2, (self.P2[1] + Y_LINE) / 2, 'Зона для P1', ha='center', color='darkblue', alpha=0.6,
                      zorder=2)
 
         rect2 = plt.Rectangle((-X_LINE, -Y_LINE), X_LINE, self.P2[1] - (-Y_LINE),
-                              facecolor='cyan', alpha=0.15, edgecolor='blue', linestyle='--', label='valid_zone',
+                              facecolor='lightseagreen', alpha=0.1, edgecolor='darkgreen', linestyle='--', label='valid_zone',
                               zorder=1)
         self.ax.add_patch(rect2)
-        self.ax.text(-X_LINE / 2, (-Y_LINE + self.P2[1]) / 2, 'Зона для P3', ha='center', color='blue', alpha=0.6,
+        self.ax.text(-X_LINE / 2, (-Y_LINE + self.P2[1]) / 2, 'Зона для P3', ha='center', color='darkgreen', alpha=0.6,
                      zorder=2)
 
     def is_valid_click(self, x, y, target):
@@ -332,40 +333,84 @@ class ConicDesigner:
 
         ax.contour(X, Y, Z, levels=[0], colors=color, linestyles=linestyle, linewidths=1.5, alpha=transparency)
 
+    def trace_arc(self, coeff, p_start, p_end):
+        """
+        Трассировка дуги коники от p_start до p_end.
+        Предполагается, что p_start имеет горизонтальную касательную (x не экстремум),
+        а p_end имеет вертикальную касательную (x экстремум).
+        Итерация идет по x от x_start до x_end.
+        """
+        x_start, y_start = p_start
+        x_end, y_end = p_end
+        
+        if abs(x_start - x_end) < 1e-9:
+            return np.array([]), np.array([])
+            
+        xs = np.linspace(x_start, x_end, 500)
+        ys = []
+        
+        current_y = y_start
+        A, B, C, D, E, F = coeff
+        
+        for x in xs:
+            # Уравнение: C*y^2 + (B*x + E)*y + (A*x^2 + D*x + F) = 0
+            a_q = C
+            b_q = B * x + E
+            c_q = A * x**2 + D * x + F
+            
+            y_candidate = None
+            
+            if abs(a_q) < 1e-12: # Линейное уравнение
+                if abs(b_q) > 1e-12:
+                    y_candidate = -c_q / b_q
+                else:
+                    y_candidate = current_y
+            else:
+                delta = b_q**2 - 4 * a_q * c_q
+                if delta < 0:
+                    if delta > -1e-4: 
+                        delta = 0
+                        sqrt_d = 0
+                    else:
+                        # Настоящий разрыв (гипербола не существует в этой x-области для этой ветви)
+                        ys.append(np.nan)
+                        continue 
+                else:
+                    sqrt_d = np.sqrt(delta)
+                    
+                y1 = (-b_q + sqrt_d) / (2 * a_q)
+                y2 = (-b_q - sqrt_d) / (2 * a_q)
+                
+                if abs(y1 - current_y) < abs(y2 - current_y):
+                    y_candidate = y1
+                else:
+                    y_candidate = y2
+            
+            ys.append(y_candidate)
+            current_y = y_candidate
+            
+        return xs, np.array(ys)
+
     def draw_composite_black(self):
         """Рисует чёрный контур составного сечения (P0-P2 и P2-P4) с симметрией"""
         if self.coeff1 is None or self.coeff2 is None:
             return
 
-        def get_branch(coeff, x_range, branch='upper'):
-            A, B, C, D, E, F = coeff
-            xs = np.linspace(x_range[0], x_range[1], 400)
-            ys = []
-            for x in xs:
-                a_q, b_q, c_q = C, B * x + E, A * x ** 2 + D * x + F
-                if abs(a_q) < 1e-9:
-                    ys.append(-c_q / b_q if abs(b_q) > 1e-9 else 0)
-                else:
-                    delta = b_q ** 2 - 4 * a_q * c_q
-                    if delta >= 0:
-                        sqrt_d = np.sqrt(delta)
-                        y1 = (-b_q + sqrt_d) / (2 * a_q)
-                        y2 = (-b_q - sqrt_d) / (2 * a_q)
-                        ys.append(max(y1, y2) if branch == 'upper' else min(y1, y2))
-                    else:
-                        ys.append(np.nan)
-            return xs, np.array(ys)
+        # Сегмент 1: P0 -> P2
+        # Трассируем от P0 (горизонтальная касательная) к P2 (вертикальная касательная)
+        xs_up, ys_up = self.trace_arc(self.coeff1, self.P0, self.P2)
+        
+        # Сегмент 2: P4 -> P2
+        # Трассируем от P4 (горизонтальная касательная) к P2 (вертикальная касательная)
+        xs_down, ys_down = self.trace_arc(self.coeff2, self.P4, self.P2)
 
-        # Верхняя дуга (P0 -> P2)
-        xs_up, ys_up = get_branch(self.coeff1, [-X_LINE, 0], 'upper')
+        # Рисуем левую часть (x < 0)
         self.ax.plot(xs_up, ys_up, 'k-', linewidth=1.5, zorder=3)
+        self.ax.plot(xs_down, ys_down, 'k-', linewidth=1.5, zorder=3)
+
+        # Рисуем правую часть (зеркальное отражение, x > 0)
         self.ax.plot(-xs_up, ys_up, 'k-', linewidth=1.5, zorder=3)
-
-        # Нижняя дуга (P2 -> P4)
-        xs_low, ys_low = get_branch(self.coeff2, [-X_LINE, 0], 'lower')
-        self.ax.plot(xs_low, ys_low, 'k-', linewidth=1.5, zorder=3)
-        self.ax.plot(-xs_low, ys_low, 'k-', linewidth=1.5, zorder=3)
-
+        self.ax.plot(-xs_down, ys_down, 'k-', linewidth=1.5, zorder=3)
     def calculate_and_draw(self):
         if self.P1 is None or self.P3 is None:
             return
