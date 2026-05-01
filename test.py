@@ -295,28 +295,28 @@ class ConicDesigner:
             return
 
         continuity = self.check_continuity_c1(self.coeff1, self.coeff2, self.P2)
-        transparency = 0.7
+        marker_transparency = 0.5
         
         if continuity:
             if not continuity['c0_continuous']:
                 # C0 разрыв - красный крест
                 self.ax.plot(self.P2[0], self.P2[1], 'rx', markersize=20, 
-                            markeredgewidth=4, zorder=7, alpha=transparency,
+                            markeredgewidth=4, zorder=7, alpha=marker_transparency,
                             label='C0 разрыв')
             elif not continuity['g1_continuous']:
                 # G1 разрыв - красный ромб
                 self.ax.plot(self.P2[0], self.P2[1], 'rd', markersize=15, 
-                            markeredgewidth=3, zorder=7, alpha=transparency,
+                            markeredgewidth=3, zorder=7, alpha=marker_transparency,
                             label='G1 разрыв')
             elif not continuity['c1_continuous']:
                 # C1 разрыв (но G1 есть) - желтый круг
                 self.ax.plot(self.P2[0], self.P2[1], 'yo', markersize=15, 
-                            markeredgewidth=2, zorder=7, alpha=transparency,
+                            markeredgewidth=2, zorder=7, alpha=marker_transparency,
                             label='G1, не C1')
             else:
                 # C1 гладкость - зеленый круг
                 self.ax.plot(self.P2[0], self.P2[1], 'go', markersize=15, 
-                            markeredgewidth=2, zorder=7, alpha=transparency,
+                            markeredgewidth=2, zorder=7, alpha=marker_transparency,
                             label='C1 гладкость')
 
     def draw_conic(self, coeff, ax, color='blue', linestyle='-', transparency=0.5):
@@ -395,7 +395,9 @@ class ConicDesigner:
         """Рисует чёрный контур составного сечения (P0-P2 и P2-P4) с симметрией"""
         if self.coeff1 is None or self.coeff2 is None:
             return
-
+        
+        contour_transparency = 0.3
+        contour_color = "#030641"
         # Сегмент 1: P0 -> P2
         # Трассируем от P0 (горизонтальная касательная) к P2 (вертикальная касательная)
         xs_up, ys_up = self.trace_arc(self.coeff1, self.P0, self.P2)
@@ -405,13 +407,13 @@ class ConicDesigner:
         xs_down, ys_down = self.trace_arc(self.coeff2, self.P4, self.P2)
 
         # Рисуем левую часть (x < 0)
-        self.ax.plot(xs_up, ys_up, 'k-', linewidth=1.5, zorder=3)
-        self.ax.plot(xs_down, ys_down, 'k-', linewidth=1.5, zorder=3)
+        self.ax.plot(xs_up, ys_up, 'k-', color=contour_color, linewidth=1.5, zorder=1, alpha=contour_transparency)
+        self.ax.plot(xs_down, ys_down, 'k-', color=contour_color, linewidth=1.5, zorder=1, alpha=contour_transparency)
 
         # Рисуем правую часть (зеркальное отражение, x > 0)
-        self.ax.plot(-xs_up, ys_up, 'k-', linewidth=1.5, zorder=3)
-        self.ax.plot(-xs_down, ys_down, 'k-', linewidth=1.5, zorder=3)
-        
+        self.ax.plot(-xs_up, ys_up, 'k-', linewidth=1.5, zorder=1)
+        self.ax.plot(-xs_down, ys_down, 'k-', linewidth=1.5, zorder=1)
+    
     def calculate_and_draw(self):
         if self.P1 is None or self.P3 is None:
             return
@@ -424,11 +426,11 @@ class ConicDesigner:
 
         self.coeff1 = self.fit_conic_liming(self.P0, self.P2, self.P1, True, False)
         if self.coeff1 is not None:
-            self.draw_conic(self.coeff1, self.ax, 'blue', '--', 0.5)
+            self.draw_conic(self.coeff1, self.ax, 'blue', '--', 0.6)
 
         self.coeff2 = self.fit_conic_liming(self.P2, self.P4, self.P3, False, True)
         if self.coeff2 is not None:
-            self.draw_conic(self.coeff2, self.ax, 'green', '--', 0.5)
+            self.draw_conic(self.coeff2, self.ax, 'green', '--', 0.6)
 
         self.draw_composite_black()
         self.visualize_continuity_c1()
